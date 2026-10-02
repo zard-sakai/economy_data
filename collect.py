@@ -4,7 +4,7 @@
 1. 北向/南向资金：真实跨境成交净买额（东方财富 RPT_MUTUAL_DEAL_HISTORY），单位为亿元人民币。
 2. 美股 / A股 / 港股 ETF：通过抓取一级市场已发行总份额（Shares Outstanding）变动 ΔS，
    计算真实申购赎回净资金流向：True Net Flow = ΔS * Close/NAV。
-3. 美股行情走 yfinance；A股/港股 ETF 行情优先走 akshare，失败自动回退 yfinance。
+3. 美股行情采用 yf.download 批量拉取规避 CI 频控；A股/港股 ETF 行情优先走 akshare。
 
 产出：
 - cross_market_data/*.csv      原始行情与真实申赎资金流
@@ -27,7 +27,7 @@ import requests
 import yfinance as yf
 
 
-SCHEMA_VERSION = 5  # 4 -> 5：升维至一级市场真实申赎份额变动与真实资金流向
+SCHEMA_VERSION = 5  # 修复 CI 环境 Yahoo 频控与 NoneType 空指针问题
 DATA_DIR = Path(__file__).resolve().parent / "cross_market_data"
 STATE_FILE = DATA_DIR / "state.json"
 US_FILE = DATA_DIR / "us_spdr_daily.csv"
@@ -129,51 +129,90 @@ def fetch_window(today: dt.date) -> tuple[str, dt.date, dt.date]:
 
 
 # ---------------------------------------------------------------------------
-# 行情与真实申赎获取：美股（yfinance + Shares Full）
+# 行情与真实申赎获取：美股（批量 yf.download 规避 CI 限制）
 # ---------------------------------------------------------------------------
-def fetch_us(start: dt.date, end: dt.date) -> pd.DataFrame:
-    rows, errors = [], []
-    for ticker, (name, role) in US_ETFS.items():
+def yahoo_download(
+    symbols: list[str], start: dt.date, end: dt.date
+) -> pd.DataFrame:
+    last_error = None
+    for attempt in range(3):
         try:
-            t = yf.Ticker(ticker)
-            hist = t.history(
+            frame = yf.download(
+                symbols,
                 start=start.isoformat(),
                 end=(end + dt.timedelta(days=1)).isoformat(),
                 auto_adjust=False,
+                progress=False,
+                threads=False,
             )
-            if hist.empty:
-                raise RuntimeError("价格数据为空")
+            if frame is not None and not frame.empty:
+                return frame
+            last_error = RuntimeError("Yahoo Finance 返回空数据")
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+        time.sleep(2 * (attempt + 1))
+    raise RuntimeError(f"Yahoo Finance 未返回数据: {symbols}（{last_error}）")
 
-            # 获取真实份额变动 (Shares Outstanding)
-            try:
-                shares = t.get_shares_full(start=start.isoformat())
-            except Exception:
-                shares = pd.Series(dtype=float)
+
+def yahoo_series(raw: pd.DataFrame, field: str, symbol: str) -> pd.Series:
+    if isinstance(raw.columns, pd.MultiIndex):
+        if field in raw.columns.levels[0]:
+            return raw[field][symbol]
+        elif symbol in raw.columns.levels[0]:
+            return raw[symbol][field]
+    return raw[field]
+
+
+def fetch_us(start: dt.date, end: dt.date) -> pd.DataFrame:
+    symbols = list(US_ETFS.keys())
+    raw = yahoo_download(symbols, start, end)
+    rows, errors = [], []
+
+    for ticker, (name, role) in US_ETFS.items():
+        try:
+            close_s = yahoo_series(raw, "Close", ticker).dropna()
+            if close_s is None or close_s.empty:
+                continue
+
+            open_s = yahoo_series(raw, "Open", ticker)
+            high_s = yahoo_series(raw, "High", ticker)
+            low_s = yahoo_series(raw, "Low", ticker)
+            adj_close_s = yahoo_series(raw, "Adj Close", ticker)
+            volume_s = yahoo_series(raw, "Volume", ticker)
 
             item = pd.DataFrame(
                 {
-                    "date": hist.index.tz_localize(None),
-                    "open": hist["Open"],
-                    "high": hist["High"],
-                    "low": hist["Low"],
-                    "close": hist["Close"],
-                    "adj_close": hist["Adj Close"],
-                    "volume": hist["Volume"],
+                    "date": close_s.index,
+                    "open": open_s,
+                    "high": high_s,
+                    "low": low_s,
+                    "close": close_s,
+                    "adj_close": adj_close_s,
+                    "volume": volume_s,
                 }
             ).dropna(subset=["close"])
 
-            item["date"] = pd.to_datetime(item["date"])
+            item["date"] = pd.to_datetime(item["date"]).dt.tz_localize(None)
             item = item.sort_values("date")
 
-            # 匹配真实份额
-            if not shares.empty:
+            # 抓取真实份额历史 (带异常防护)
+            shares_series = pd.Series(dtype=float)
+            try:
+                t = yf.Ticker(ticker)
+                s = t.get_shares_full(start=start.isoformat())
+                if s is not None and not s.empty:
+                    shares_series = s
+            except Exception:  # noqa: BLE001
+                pass
+
+            if not shares_series.empty:
                 shares_df = (
                     pd.DataFrame(
                         {
-                            "date": pd.to_datetime(shares.index).tz_localize(
-                                None
-                            ),
-                            "shares_outstanding": shares.values,
+                            "date": pd.to_datetime(
+                                shares_series.index
+                            ).dt.tz_localize(None),
+                            "shares_outstanding": shares_series.values,
                         }
                     )
                     .dropna()
@@ -187,8 +226,6 @@ def fetch_us(start: dt.date, end: dt.date) -> pd.DataFrame:
 
             item["shares_outstanding"] = item["shares_outstanding"].ffill()
             item["shares_change_1d"] = item["shares_outstanding"].diff()
-
-            # 计算真实资金流入 (True Flow = ΔShares * Close)
             item["true_net_flow_usd"] = (
                 item["shares_change_1d"] * item["close"]
             )
@@ -202,13 +239,13 @@ def fetch_us(start: dt.date, end: dt.date) -> pd.DataFrame:
             item["turnover_est"] = item["close"] * item["volume"]
 
             rows.append(item)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             errors.append(f"{ticker}: {exc}")
 
     if errors:
-        print(f"⚠️ 美股部分标的拉取警示: {errors}", file=sys.stderr)
+        print(f"⚠️ 美股部分标的处理警示: {errors}", file=sys.stderr)
     if not rows:
-        raise RuntimeError("美股 ETF 全量获取失败")
+        raise RuntimeError("美股 ETF 行情获取失败")
     return pd.concat(rows, ignore_index=True)
 
 
@@ -218,8 +255,6 @@ def fetch_us(start: dt.date, end: dt.date) -> pd.DataFrame:
 def ak_fetch_cn_with_shares(
     code: str, start: dt.date, end: dt.date
 ) -> pd.DataFrame:
-    """获取 A 股 ETF 价格与官方已发行份额（通过 akshare / 东方财富接口）"""
-    # 1. 价格历史
     df_price = ak.fund_etf_hist_em(
         symbol=CN_AK_SYMBOL.get(code, code),
         period="daily",
@@ -241,7 +276,6 @@ def ak_fetch_cn_with_shares(
     df["date"] = pd.to_datetime(df["date"])
     df["adj_close"] = pd.to_numeric(df["close"], errors="coerce")
 
-    # 2. 获取真实份额历史 (EastMoney ETF Share API)
     try:
         url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
         params = {
@@ -269,13 +303,12 @@ def ak_fetch_cn_with_shares(
             df = pd.merge(df, shares_df, on="date", how="left")
         else:
             df["shares_outstanding"] = math.nan
-    except Exception:
+    except Exception:  # noqa: BLE001
         df["shares_outstanding"] = math.nan
 
     df = df.sort_values("date")
     df["shares_outstanding"] = df["shares_outstanding"].ffill()
     df["shares_change_1d"] = df["shares_outstanding"].diff()
-    # 真实净买额 / 申赎金额（亿元） = Δ份额 * 单位收盘价 / 10^8
     df["true_net_flow_100m_cny"] = (
         df["shares_change_1d"] * df["close"]
     ) / 100000000.0
@@ -296,7 +329,6 @@ def fetch_cn_hk_etfs(start: dt.date, end: dt.date) -> pd.DataFrame:
             if market == "A股":
                 item = ak_fetch_cn_with_shares(code, start, end)
             else:
-                # 港股或跨境 ETF 回退机制
                 symbol = HK_AK_SYMBOL.get(
                     code, code.replace(".HK", "").zfill(5)
                 )
@@ -334,7 +366,7 @@ def fetch_cn_hk_etfs(start: dt.date, end: dt.date) -> pd.DataFrame:
             item.insert(6, "currency", currency)
 
             rows.append(item)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             errors.append(f"{code}: {exc}")
 
     if errors:
@@ -403,7 +435,7 @@ def fetch_cross_border(
                 ].copy()
                 result.insert(1, "flow_name", flow_name)
                 return result.sort_values("date")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             last_err = exc
             time.sleep(2 * (attempt + 1))
 
@@ -432,12 +464,6 @@ def merge_and_write(
     return merged
 
 
-def write_csv_atomic(path: Path, frame: pd.DataFrame) -> None:
-    temp_path = path.with_suffix(path.suffix + ".tmp")
-    frame.to_csv(temp_path, index=False, encoding="utf-8-sig")
-    temp_path.replace(path)
-
-
 def write_json_atomic(path: Path, payload: dict) -> None:
     temp_path = path.with_suffix(path.suffix + ".tmp")
     temp_path.write_text(
@@ -448,7 +474,7 @@ def write_json_atomic(path: Path, payload: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 看板结构化 JSON 构建 (采用真实 Net Flow)
+# 看板结构化 JSON 构建 (含优雅回退机制)
 # ---------------------------------------------------------------------------
 def _clean_number(value, digits: int = 4):
     if value is None:
@@ -471,12 +497,30 @@ def _true_flow_series(
     work = frame.copy()
     work["date"] = pd.to_datetime(work["date"])
     work["_d"] = work["date"].dt.strftime("%Y-%m-%d")
+
+    # 兜底计算方向性成交代理量
+    if "directional_turnover_proxy" not in work.columns:
+        if "close" in work.columns and "volume" in work.columns:
+            close_delta = work.groupby(code_column)["close"].diff()
+            direction = (close_delta > 0).astype(int) - (
+                close_delta < 0
+            ).astype(int)
+            work["directional_turnover_proxy"] = (
+                work["close"] * work["volume"] * direction
+            ) / 1e8
+        else:
+            work["directional_turnover_proxy"] = math.nan
+
     axis = pd.Index(dates)
     out: dict[str, list] = {}
     for code, item in work.groupby(code_column, sort=False):
         item = item.sort_values("date")
-        val_col = flow_col if flow_col in item.columns else "turnover_est"
-        lookup = dict(zip(item["_d"], item[val_col]))
+        # 优先使用真实申赎 Flow，全空时自动降级使用代理量，保证前端不崩
+        use_col = flow_col
+        if flow_col not in item.columns or item[flow_col].dropna().empty:
+            use_col = "directional_turnover_proxy"
+
+        lookup = dict(zip(item["_d"], item[use_col]))
         out[str(code)] = [_clean_number(lookup.get(d)) for d in axis]
     return out
 
@@ -621,13 +665,11 @@ def main() -> None:
     mode, start, end = fetch_window(today)
     print(f"🚀 开始执行 {mode} 真实资金流采集：{start} 至 {end}")
 
-    # 1. 抓取各市场数据
     us_new = fetch_us(start, end)
     etf_new = fetch_cn_hk_etfs(start, end)
     northbound_new = fetch_cross_border("北向资金", start, end)
     southbound_new = fetch_cross_border("南向资金", start, end)
 
-    # 2. 合并落盘 CSV
     us_all = merge_and_write(US_FILE, us_new, ["date", "ticker"])
     etf_all = merge_and_write(ETF_FILE, etf_new, ["date", "code"])
     northbound_all = merge_and_write(
@@ -637,7 +679,6 @@ def main() -> None:
         SOUTHBOUND_FILE, southbound_new, ["date", "flow_name"]
     )
 
-    # 3. 校验数据新鲜度
     freshness, warnings = check_freshness(
         {
             "美股": us_all,
@@ -653,13 +694,11 @@ def main() -> None:
         today,
     )
 
-    # 4. 生成看板 JSON
     macro_json = build_macro_json(
         today, us_all, etf_all, southbound_all, northbound_all, freshness
     )
     write_json_atomic(MACRO_JSON_FILE, macro_json)
 
-    # 5. 更新运行状态 JSON
     STATE_FILE.write_text(
         json.dumps(
             {
