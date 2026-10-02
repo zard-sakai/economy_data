@@ -3,8 +3,8 @@
 口径升级 (Schema Version 5 - 方案二: 交易所官方 API 直连)：
 1. 北向/南向资金：真实跨境成交净买额（东方财富 RPT_MUTUAL_DEAL_HISTORY），单位为亿元人民币。
 2. 美股 / A股 / 港股 ETF：
-   - 价格行情：yfinance 批量拉取，切片切分对齐（解决不同市场交易日历导致的数组长度不匹配问题）。
-   - A股 ETF 官方份额：直连上交所 (SSE) 与深交所 (SZSE) 官方 API 提取已发行总份额，对海外 IP 零拦截！
+   - 价格行情：yfinance 批量拉取，切片同步对齐（解决交易日历差异导致的数组长度错位）。
+   - A股 ETF 官方份额：HTTPS 直连上交所 (SSE) 与深交所 (SZSE) 官方 API 提取已发行总份额，对海外 IP 零拦截！
    - 真实资金流向：True Net Flow = ΔShares Outstanding * Close Price / 10^8 (亿元)。
 
 产出：
@@ -27,7 +27,7 @@ import requests
 import yfinance as yf
 
 
-SCHEMA_VERSION = 5  # 修复 yfinance MultiIndex 提取时的长度不匹配Bug
+SCHEMA_VERSION = 5  # 修复 516160.SS 代码拼写、上交所 HTTPS 协议与 MultiIndex 切片对齐 Bug
 DATA_DIR = Path(__file__).resolve().parent / "cross_market_data"
 STATE_FILE = DATA_DIR / "state.json"
 US_FILE = DATA_DIR / "us_spdr_daily.csv"
@@ -51,8 +51,13 @@ DEFAULT_HEADERS = {
 
 SSE_HEADERS = {
     "User-Agent": DEFAULT_HEADERS["User-Agent"],
-    "Referer": "http://www.sse.com.cn/",
+    "Referer": "https://www.sse.com.cn/",
     "Host": "query.sse.com.cn",
+}
+
+SZSE_HEADERS = {
+    "User-Agent": DEFAULT_HEADERS["User-Agent"],
+    "Referer": "https://www.szse.cn/",
 }
 
 WINDOW_30D_TRADING_DAYS = 30
@@ -80,7 +85,7 @@ CN_HK_ETFS = {
     "512000": ("券商ETF", "A股", "金融先锋", "512000.SS", "CNY"),
     "159995": ("芯片ETF", "A股", "TMT硬科技", "159995.SZ", "CNY"),
     "512010": ("医药ETF", "A股", "医药防御", "512010.SS", "CNY"),
-    "516160": ("新能源ETF", "A股", "绿色制造", "516160.SZ", "CNY"),
+    "516160": ("新能源ETF", "A股", "绿色制造", "516160.SS", "CNY"),  # 修正: .SZ -> .SS
     "159928": ("主要消费ETF", "A股", "消费复苏", "159928.SZ", "CNY"),
     "513050": ("恒生科技ETF", "港股", "港股成长", "513050.SS", "CNY"),
     "510900": ("H股ETF", "港股", "国企价值", "510900.SS", "CNY"),
@@ -132,11 +137,11 @@ def fetch_window(today: dt.date) -> tuple[str, dt.date, dt.date]:
 
 
 # ---------------------------------------------------------------------------
-# 交易所官方接口：上交所 (SSE) & 深交所 (SZSE) ETF 份额直连
+# 交易所官方接口：上交所 (SSE) & 深交所 (SZSE) ETF 份额直连 (HTTPS)
 # ---------------------------------------------------------------------------
 def fetch_sse_official_shares(code: str) -> pd.DataFrame:
-    """上交所官方 API：直接拉取权威 ETF 历史已发行总份额（无 IP 限制）"""
-    url = f"http://query.sse.com.cn/commonUtil/getStockFensheHistory.do?stockCode={code}"
+    """上交所官方 HTTPS API：直接拉取权威 ETF 历史已发行总份额"""
+    url = f"https://query.sse.com.cn/commonUtil/getStockFensheHistory.do?stockCode={code}"
     res = requests.get(url, headers=SSE_HEADERS, timeout=15)
     res.raise_for_status()
     data = res.json().get("result", [])
@@ -149,60 +154,49 @@ def fetch_sse_official_shares(code: str) -> pd.DataFrame:
     df["shares_outstanding"] = pd.to_numeric(
         df["shares_outstanding"], errors="coerce"
     )
-    return df.sort_values("date")
+    return df.sort_values("date").reset_index(drop=True)
 
 
 def fetch_szse_official_shares(code: str) -> pd.DataFrame:
-    """深交所官方 API：直接拉取深市 ETF 历史已发行总份额"""
+    """深交所官方 HTTPS API：直接拉取深市 ETF 历史已发行总份额"""
+    url = "https://www.szse.cn/api/report/ShowReport/data?SHOWPREPAGE=true&CATALOGID=1945&txtQueryDate="
+    res = requests.get(url, headers=SZSE_HEADERS, timeout=15)
+    res.raise_for_status()
+    data = res.json()
+    if isinstance(data, list) and len(data) > 0:
+        df = pd.DataFrame(data[0].get("data", []))
+        if "sys_key" in df.columns:
+            df_code = df[df["sys_key"].str.contains(code, na=False)]
+            if not df_code.empty:
+                result = pd.DataFrame(
+                    {
+                        "date": pd.to_datetime(df_code["zrq"]),
+                        "shares_outstanding": pd.to_numeric(
+                            df_code["dqfe"], errors="coerce"
+                        ),
+                    }
+                )
+                return result.sort_values("date").reset_index(drop=True)
+    return pd.DataFrame()
+
+
+def fetch_exchange_official_shares(code: str) -> pd.DataFrame:
+    """按交易所路由抓取权威 ETF 份额（防崩锁保护包）"""
     try:
-        url = "http://www.szse.cn/api/report/ShowReport/data?SHOWPREPAGE=true&CATALOGID=1945&txtQueryDate="
-        res = requests.get(url, headers=DEFAULT_HEADERS, timeout=10)
-        data = res.json()
-        if isinstance(data, list) and len(data) > 0:
-            df = pd.DataFrame(data[0].get("data", []))
-            if "sys_key" in df.columns:
-                df_code = df[df["sys_key"].str.contains(code, na=False)]
-                if not df_code.empty:
-                    result = pd.DataFrame(
-                        {
-                            "date": pd.to_datetime(df_code["zrq"]),
-                            "shares_outstanding": pd.to_numeric(
-                                df_code["dqfe"], errors="coerce"
-                            ),
-                        }
-                    )
-                    return result.sort_values("date")
+        if code.startswith("5") or code.startswith("6"):
+            return fetch_sse_official_shares(code)
+        elif code.startswith("1") or code.startswith("0"):
+            return fetch_szse_official_shares(code)
     except Exception as exc:  # noqa: BLE001
         print(
-            f"ℹ️ 深交所 API 请求跳过 ({code}): {exc}",
+            f"ℹ️ 交易所官方份额 API 暂时不可用 ({code}: {exc})，降级使用成交量代理流量",
             file=sys.stderr,
         )
     return pd.DataFrame()
 
 
-def fetch_exchange_official_shares(code: str) -> pd.DataFrame:
-    """按交易所路由抓取权威 ETF 份额"""
-    if code.startswith("5") or code.startswith("6"):
-        try:
-            return fetch_sse_official_shares(code)
-        except Exception as exc:  # noqa: BLE001
-            print(
-                f"⚠️ 上交所官方 API 获取失败 ({code}): {exc}",
-                file=sys.stderr,
-            )
-    elif code.startswith("1") or code.startswith("0"):
-        try:
-            return fetch_szse_official_shares(code)
-        except Exception as exc:  # noqa: BLE001
-            print(
-                f"⚠️ 深交所官方 API 获取失败 ({code}): {exc}",
-                file=sys.stderr,
-            )
-    return pd.DataFrame()
-
-
 # ---------------------------------------------------------------------------
-# yfinance 提取助手（对齐索引与数据长度）
+# yfinance 提取助手（严格同步对齐切片索引）
 # ---------------------------------------------------------------------------
 def yahoo_download(
     symbols: list[str], start: dt.date, end: dt.date
@@ -228,34 +222,44 @@ def yahoo_download(
 
 
 def extract_ticker_df(raw_price: pd.DataFrame, ticker: str) -> pd.DataFrame:
-    """对 MultiIndex 行情结构进行同索引切片，防止不同标的交易日历差异导致长度错位。"""
-    if not isinstance(raw_price.columns, pd.MultiIndex):
-        df_sym = raw_price.copy()
-    else:
-        if ticker in raw_price.columns.levels[0]:
-            df_sym = raw_price[ticker].copy()
-        elif ticker in raw_price.columns.levels[1]:
-            df_sym = raw_price.xs(ticker, axis=1, level=1).copy()
-        else:
-            return pd.DataFrame()
-
-    col_map = {
-        "Open": "open",
-        "High": "high",
-        "Low": "low",
-        "Close": "close",
-        "Adj Close": "adj_close",
-        "Volume": "volume",
-    }
-    df_sym = df_sym.rename(columns=col_map)
-    keep = ["open", "high", "low", "close", "adj_close", "volume"]
-    existing = [c for c in keep if c in df_sym.columns]
-    df_sym = df_sym[existing].dropna(subset=["close"])
-    if df_sym.empty:
+    """对 MultiIndex 行情结构进行同索引切片，解决不同市场交易日历导致的长度错位。"""
+    if raw_price is None or raw_price.empty:
         return pd.DataFrame()
 
-    df_sym["date"] = pd.to_datetime(df_sym.index).tz_localize(None)
-    return df_sym.sort_values("date")
+    try:
+        if isinstance(raw_price.columns, pd.MultiIndex):
+            if ticker in raw_price.columns.levels[0]:
+                df_sym = raw_price[ticker].copy()
+            elif ticker in raw_price.columns.levels[1]:
+                df_sym = raw_price.xs(ticker, axis=1, level=1).copy()
+            else:
+                return pd.DataFrame()
+        else:
+            df_sym = raw_price.copy()
+
+        col_map = {
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Adj Close": "adj_close",
+            "Volume": "volume",
+        }
+        df_sym = df_sym.rename(columns=col_map)
+        keep = ["open", "high", "low", "close", "adj_close", "volume"]
+        existing = [c for c in keep if c in df_sym.columns]
+        if "close" not in existing:
+            return pd.DataFrame()
+
+        df_sym = df_sym[existing].dropna(subset=["close"]).copy()
+        if df_sym.empty:
+            return pd.DataFrame()
+
+        df_sym["date"] = pd.to_datetime(df_sym.index).dt.tz_localize(None)
+        return df_sym.sort_values("date").reset_index(drop=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"ℹ️ 行情提取异常 ({ticker}): {exc}", file=sys.stderr)
+        return pd.DataFrame()
 
 
 # ---------------------------------------------------------------------------
@@ -295,7 +299,10 @@ def fetch_us(start: dt.date, end: dt.date) -> pd.DataFrame:
                     .sort_values("date")
                 )
                 item = pd.merge_asof(
-                    item, shares_df, on="date", direction="backward"
+                    item.sort_values("date"),
+                    shares_df.sort_values("date"),
+                    on="date",
+                    direction="backward",
                 )
             else:
                 item["shares_outstanding"] = math.nan
@@ -349,7 +356,10 @@ def fetch_cn_hk_etfs(start: dt.date, end: dt.date) -> pd.DataFrame:
             shares_df = fetch_exchange_official_shares(code)
             if not shares_df.empty:
                 item = pd.merge_asof(
-                    item, shares_df, on="date", direction="backward"
+                    item.sort_values("date"),
+                    shares_df.sort_values("date"),
+                    on="date",
+                    direction="backward",
                 )
             else:
                 item["shares_outstanding"] = math.nan
