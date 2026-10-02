@@ -10,7 +10,7 @@
 产出：
 - cross_market_data/*.csv     原始行情与资金流（既有格式保持不变）
 - cross_market_data/macro_data.json
-  看板直接消费的结构化数据（三市场资金流 + 周期涨跌 + 日期轴）
+   看板直接消费的结构化数据（三市场资金流 + 周期涨跌 + 日期轴）
 - cross_market_data/state.json
 """
 
@@ -42,14 +42,24 @@ NORTHBOUND_MONTHLY_FILE = DATA_DIR / "northbound_monthly.csv"
 SOUTHBOUND_MONTHLY_FILE = DATA_DIR / "southbound_monthly.csv"
 MACRO_JSON_FILE = DATA_DIR / "macro_data.json"
 
+# 通用请求头，防止海外 CI 节点请求东方财富时被防爬拦截
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Referer": "https://data.eastmoney.com/",
+}
+
 # ---------------------------------------------------------------------------
 # 看板 JSON 输出参数
 # ---------------------------------------------------------------------------
-WINDOW_30D_TRADING_DAYS = 30   # 30 日窗口
+WINDOW_30D_TRADING_DAYS = 30  # 30 日窗口
 
 # 数据陈旧阈值：任一市场最新交易日距今超过该天数即告警（自然日）
-STALE_DAYS_WARNING = 5         # 超过 5 天 → 告警但不算失败
-STALE_DAYS_ERROR = 15          # 超过 15 天 → 判定失败，让 workflow 变红
+STALE_DAYS_WARNING = 5  # 超过 5 天 → 告警但不算失败
+STALE_DAYS_ERROR = 15  # 超过 15 天 → 判定失败，让 workflow 变红
 
 # 各市场最新数据不得早于该天数（用于强校验；仅对仍在更新的市场生效）
 REQUIRED_FRESHNESS_DAYS = 15
@@ -115,7 +125,10 @@ def is_initialized() -> bool:
         return False
     try:
         state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        return bool(state.get("initialized")) and state.get("schema_version") == SCHEMA_VERSION
+        return (
+            bool(state.get("initialized"))
+            and state.get("schema_version") == SCHEMA_VERSION
+        )
     except (OSError, json.JSONDecodeError):
         return False
 
@@ -136,7 +149,9 @@ def fetch_window(today: dt.date) -> tuple[str, dt.date, dt.date]:
 # ---------------------------------------------------------------------------
 # 行情获取：美股（yfinance）
 # ---------------------------------------------------------------------------
-def yahoo_download(symbols: list[str], start: dt.date, end: dt.date) -> pd.DataFrame:
+def yahoo_download(
+    symbols: list[str], start: dt.date, end: dt.date
+) -> pd.DataFrame:
     last_error: Exception | None = None
     for attempt in range(3):
         try:
@@ -158,8 +173,12 @@ def yahoo_download(symbols: list[str], start: dt.date, end: dt.date) -> pd.DataF
 
 
 def yahoo_series(raw: pd.DataFrame, field: str, symbol: str) -> pd.Series:
+    """兼容不同版本 yfinance 返回的 MultiIndex 字段顺序。"""
     if isinstance(raw.columns, pd.MultiIndex):
-        return raw[field][symbol]
+        if field in raw.columns.levels[0]:
+            return raw[field][symbol]
+        elif symbol in raw.columns.levels[0]:
+            return raw[symbol][field]
     return raw[field]
 
 
@@ -212,7 +231,9 @@ def _ak_rows_to_frame(df: pd.DataFrame) -> pd.DataFrame:
     keep = ["date", "open", "high", "low", "close", "volume"]
     missing = [c for c in keep if c not in frame.columns]
     if missing:
-        raise RuntimeError(f"akshare 返回缺少列: {missing}（实际列: {list(df.columns)}）")
+        raise RuntimeError(
+            f"akshare 返回缺少列: {missing}（实际列: {list(df.columns)}）"
+        )
     frame = frame[keep].copy()
     frame["date"] = pd.to_datetime(frame["date"])
     for col in ("open", "high", "low", "close", "volume"):
@@ -220,36 +241,53 @@ def _ak_rows_to_frame(df: pd.DataFrame) -> pd.DataFrame:
     frame = frame.dropna(subset=["close"])
     if frame.empty:
         raise RuntimeError("akshare 返回空数据")
-    # 免费源无复权净值列，用收盘价代替 adj_close（仅影响涨跌幅口径，不引入虚假数据）
     frame["adj_close"] = frame["close"]
     frame = frame.sort_values("date")
     return frame
 
 
 def ak_fetch_cn(code: str, start: dt.date, end: dt.date) -> pd.DataFrame:
-    df = ak.fund_etf_hist_em(
-        symbol=CN_AK_SYMBOL.get(code, code),
-        period="daily",
-        start_date=start.strftime("%Y%m%d"),
-        end_date=end.strftime("%Y%m%d"),
-        adjust="qfq",
-    )
-    return _ak_rows_to_frame(df)
+    last_err = None
+    for attempt in range(3):
+        try:
+            df = ak.fund_etf_hist_em(
+                symbol=CN_AK_SYMBOL.get(code, code),
+                period="daily",
+                start_date=start.strftime("%Y%m%d"),
+                end_date=end.strftime("%Y%m%d"),
+                adjust="qfq",
+            )
+            return _ak_rows_to_frame(df)
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+            time.sleep(1 + attempt)
+    raise RuntimeError(f"ak_fetch_cn 失败: {last_err}")
 
 
 def ak_fetch_hk(code: str, start: dt.date, end: dt.date) -> pd.DataFrame:
-    symbol = HK_AK_SYMBOL.get(code, code.replace(".HK", "").lstrip("0").zfill(5))
-    df = ak.stock_hk_hist(
-        symbol=symbol,
-        period="daily",
-        start_date=start.strftime("%Y%m%d"),
-        end_date=end.strftime("%Y%m%d"),
-        adjust="qfq",
+    symbol = HK_AK_SYMBOL.get(
+        code, code.replace(".HK", "").lstrip("0").zfill(5)
     )
-    return _ak_rows_to_frame(df)
+    last_err = None
+    for attempt in range(3):
+        try:
+            df = ak.stock_hk_hist(
+                symbol=symbol,
+                period="daily",
+                start_date=start.strftime("%Y%m%d"),
+                end_date=end.strftime("%Y%m%d"),
+                adjust="qfq",
+            )
+            return _ak_rows_to_frame(df)
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+            time.sleep(1 + attempt)
+    raise RuntimeError(f"ak_fetch_hk 失败: {last_err}")
 
 
-def yf_fetch_one(yahoo_symbol: str, start: dt.date, end: dt.date) -> pd.DataFrame:
+def yf_fetch_one(
+    yahoo_symbol: str, start: dt.date, end: dt.date
+) -> pd.DataFrame:
     raw = yahoo_download([yahoo_symbol], start, end)
     frame = pd.DataFrame(
         {
@@ -268,17 +306,23 @@ def yf_fetch_one(yahoo_symbol: str, start: dt.date, end: dt.date) -> pd.DataFram
 
 
 def fetch_cn_hk_etfs(start: dt.date, end: dt.date) -> pd.DataFrame:
-    """逐个标的抓取：akshare 优先，失败回退 yfinance，全部失败才报错。
-
-    逐标的降级（而非整批 raise）是为了避免单个 symbol 抽风拖垮全部 A/H 数据。
-    """
+    """逐个标的抓取：akshare 优先，失败回退 yfinance，全部失败才报错。"""
     rows, errors = [], []
-    for code, (name, market, role, yahoo_symbol, currency) in CN_HK_ETFS.items():
+    for code, (
+        name,
+        market,
+        role,
+        yahoo_symbol,
+        currency,
+    ) in CN_HK_ETFS.items():
         item = None
         tried: list[str] = []
         fetchers = (
             (ak_fetch_hk if market == "港股" else ak_fetch_cn, "akshare"),
-            (lambda c, s, e, _y=yahoo_symbol: yf_fetch_one(_y, s, e), "yfinance"),
+            (
+                lambda c, s, e, _y=yahoo_symbol: yf_fetch_one(_y, s, e),
+                "yfinance",
+            ),
         )
         for fn, label in fetchers:
             try:
@@ -310,7 +354,9 @@ def fetch_cn_hk_etfs(start: dt.date, end: dt.date) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # 指标
 # ---------------------------------------------------------------------------
-def add_flow_indicators(frame: pd.DataFrame, code_column: str) -> pd.DataFrame:
+def add_flow_indicators(
+    frame: pd.DataFrame, code_column: str
+) -> pd.DataFrame:
     enriched = []
     for _, item in frame.groupby(code_column, sort=False):
         item = item.copy().sort_values("date")
@@ -318,7 +364,9 @@ def add_flow_indicators(frame: pd.DataFrame, code_column: str) -> pd.DataFrame:
         if item.empty:
             continue
         close_delta = item["close"].diff()
-        direction = close_delta.gt(0).astype(int) - close_delta.lt(0).astype(int)
+        direction = close_delta.gt(0).astype(int) - close_delta.lt(0).astype(
+            int
+        )
         typical_price = (item["high"] + item["low"] + item["close"]) / 3
         raw_money_flow = typical_price * item["volume"]
         typical_delta = typical_price.diff()
@@ -344,47 +392,76 @@ def add_flow_indicators(frame: pd.DataFrame, code_column: str) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # 跨境资金
 # ---------------------------------------------------------------------------
-def fetch_cross_border(flow_name: str, start: dt.date, end: dt.date) -> pd.DataFrame:
+def fetch_cross_border(
+    flow_name: str, start: dt.date, end: dt.date
+) -> pd.DataFrame:
     type_code = {"北向资金": "005", "南向资金": "006"}[flow_name]
     if (end - start).days <= 31:
-        response = requests.get(
-            "https://datacenter-web.eastmoney.com/api/data/v1/get",
-            params={
-                "sortColumns": "TRADE_DATE",
-                "sortTypes": "-1",
-                "pageSize": "64",
-                "pageNumber": "1",
-                "reportName": "RPT_MUTUAL_DEAL_HISTORY",
-                "columns": "ALL",
-                "source": "WEB",
-                "client": "WEB",
-                "filter": f'(MUTUAL_TYPE="{type_code}")',
-            },
-            timeout=30,
-        )
-        response.raise_for_status()
-        payload = response.json().get("result") or {}
-        frame = pd.DataFrame(payload.get("data") or []).rename(
-            columns={
-                "TRADE_DATE": "date",
-                "NET_DEAL_AMT": "net_buy_100m_cny",
-                "BUY_AMT": "buy_100m_cny",
-                "SELL_AMT": "sell_100m_cny",
-            }
-        )
-        if frame.empty:
-            raise RuntimeError(f"东方财富未返回{flow_name}增量数据")
-        for column in ("net_buy_100m_cny", "buy_100m_cny", "sell_100m_cny"):
-            frame[column] = pd.to_numeric(frame[column], errors="coerce") / 100
+        last_err = None
+        for attempt in range(3):
+            try:
+                response = requests.get(
+                    "https://datacenter-web.eastmoney.com/api/data/v1/get",
+                    params={
+                        "sortColumns": "TRADE_DATE",
+                        "sortTypes": "-1",
+                        "pageSize": "64",
+                        "pageNumber": "1",
+                        "reportName": "RPT_MUTUAL_DEAL_HISTORY",
+                        "columns": "ALL",
+                        "source": "WEB",
+                        "client": "WEB",
+                        "filter": f'(MUTUAL_TYPE="{type_code}")',
+                    },
+                    headers=DEFAULT_HEADERS,
+                    timeout=30,
+                )
+                response.raise_for_status()
+                payload = response.json().get("result") or {}
+                data_list = payload.get("data") or []
+                if data_list:
+                    frame = pd.DataFrame(data_list).rename(
+                        columns={
+                            "TRADE_DATE": "date",
+                            "NET_DEAL_AMT": "net_buy_100m_cny",
+                            "BUY_AMT": "buy_100m_cny",
+                            "SELL_AMT": "sell_100m_cny",
+                        }
+                    )
+                    for column in (
+                        "net_buy_100m_cny",
+                        "buy_100m_cny",
+                        "sell_100m_cny",
+                    ):
+                        frame[column] = (
+                            pd.to_numeric(frame[column], errors="coerce") / 100
+                        )
+                    break
+                last_err = RuntimeError(f"东方财富未返回{flow_name}数据")
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+                time.sleep(2 * (attempt + 1))
+        else:
+            raise RuntimeError(f"东方财富增量数据获取失败: {last_err}")
     else:
-        frame = ak.stock_hsgt_hist_em(symbol=flow_name).rename(
-            columns={
-                "日期": "date",
-                "当日成交净买额": "net_buy_100m_cny",
-                "买入成交额": "buy_100m_cny",
-                "卖出成交额": "sell_100m_cny",
-            }
-        )
+        last_err = None
+        for attempt in range(3):
+            try:
+                frame = ak.stock_hsgt_hist_em(symbol=flow_name).rename(
+                    columns={
+                        "日期": "date",
+                        "当日成交净买额": "net_buy_100m_cny",
+                        "买入成交额": "buy_100m_cny",
+                        "卖出成交额": "sell_100m_cny",
+                    }
+                )
+                if not frame.empty:
+                    break
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+                time.sleep(2 * (attempt + 1))
+        else:
+            raise RuntimeError(f"AKShare 全量{flow_name}获取失败: {last_err}")
 
     frame["date"] = pd.to_datetime(frame["date"])
     mask = frame["date"].dt.date.between(start, end)
@@ -415,16 +492,20 @@ def merge_and_write(
     for key in keys:
         if key != "date":
             merged[key] = merged[key].astype(str)
-    # 清理历史遗留的残缺行（如 close/market 为空的脏数据）
+
     for required in ("close",):
         if required in merged.columns:
             merged = merged[merged[required].notna()]
     if "market" in merged.columns:
-        merged = merged[merged["market"].notna() & (merged["market"] != "")]
+        merged = merged[
+            merged["market"].notna() & (merged["market"] != "")
+        ]
     merged = merged.drop_duplicates(keys, keep="last")
     merged = merged.sort_values(keys)
 
-    merged = merged[[column for column in new_data.columns if column in merged.columns]]
+    merged = merged[
+        [column for column in new_data.columns if column in merged.columns]
+    ]
     if indicator_code_column:
         merged = add_flow_indicators(merged, indicator_code_column)
 
@@ -452,7 +533,9 @@ def write_json_atomic(path: Path, payload: dict) -> None:
 # ---------------------------------------------------------------------------
 # 月线聚合
 # ---------------------------------------------------------------------------
-def build_market_monthly(frame: pd.DataFrame, code_column: str) -> pd.DataFrame:
+def build_market_monthly(
+    frame: pd.DataFrame, code_column: str
+) -> pd.DataFrame:
     daily = frame.copy()
     daily["date"] = pd.to_datetime(daily["date"])
     daily["month"] = daily["date"].dt.to_period("M").astype(str)
@@ -505,13 +588,26 @@ def build_cross_border_monthly(frame: pd.DataFrame) -> pd.DataFrame:
             month_start=("date", "min"),
             month_end=("date", "max"),
             net_buy_100m_cny=(
-                "net_buy_100m_cny", lambda values: values.sum(min_count=1)
+                "net_buy_100m_cny",
+                lambda values: values.sum(min_count=1),
             ),
-            buy_100m_cny=("buy_100m_cny", lambda values: values.sum(min_count=1)),
-            sell_100m_cny=("sell_100m_cny", lambda values: values.sum(min_count=1)),
+            buy_100m_cny=(
+                "buy_100m_cny",
+                lambda values: values.sum(min_count=1),
+            ),
+            sell_100m_cny=(
+                "sell_100m_cny",
+                lambda values: values.sum(min_count=1),
+            ),
             trading_days=("date", "count"),
-            positive_days=("net_buy_100m_cny", lambda values: int((values > 0).sum())),
-            negative_days=("net_buy_100m_cny", lambda values: int((values < 0).sum())),
+            positive_days=(
+                "net_buy_100m_cny",
+                lambda values: int((values > 0).sum()),
+            ),
+            negative_days=(
+                "net_buy_100m_cny",
+                lambda values: int((values < 0).sum()),
+            ),
         )
         .sort_values(["flow_name", "month"])
     )
@@ -528,7 +624,6 @@ def build_cross_border_monthly(frame: pd.DataFrame) -> pd.DataFrame:
 # 看板结构化 JSON
 # ---------------------------------------------------------------------------
 def _clean_number(value, digits: int = 4):
-    """把数值规整为可 JSON 序列化的形式；NaN/Inf -> None。"""
     if value is None:
         return None
     try:
@@ -540,8 +635,9 @@ def _clean_number(value, digits: int = 4):
     return round(number, digits)
 
 
-def _series_by_code(frame: pd.DataFrame, code_column: str, dates: list[str]) -> dict:
-    """按日期轴对齐，输出 {code: [值...]} 的等长数组。"""
+def _series_by_code(
+    frame: pd.DataFrame, code_column: str, dates: list[str]
+) -> dict:
     work = frame.copy()
     work["date"] = pd.to_datetime(work["date"])
     work["_d"] = work["date"].dt.strftime("%Y-%m-%d")
@@ -554,8 +650,9 @@ def _series_by_code(frame: pd.DataFrame, code_column: str, dates: list[str]) -> 
     return out
 
 
-def _change_since(frame: pd.DataFrame, code_column: str, since: dt.date) -> dict:
-    """窗口内涨跌幅%（用 adj_close 首尾计算）。"""
+def _change_since(
+    frame: pd.DataFrame, code_column: str, since: dt.date
+) -> dict:
     work = frame.copy()
     work["date"] = pd.to_datetime(work["date"]).dt.date
     out: dict[str, float] = {}
@@ -578,25 +675,7 @@ def _month_list(frame: pd.DataFrame, months: int) -> list[str]:
     return [str(p) for p in periods[-months:]]
 
 
-def _daily_date_list(frame: pd.DataFrame, days: int) -> list[str]:
-    """取 frame 内最后 N 个自然日（按出现过的交易日）。
-
-    注意：单一数据源可能比其它市场落后数十天。30 日窗口若只取某一个市场的
-    日历，落后市场会与其完全无交集而导致整段序列被静默清空。因此 30 日窗口
-    一律由 build_macro_json 用「多市场日历并集」构造，本函数只做单源兜底。
-    """
-    work = frame.copy()
-    work["date"] = pd.to_datetime(work["date"])
-    unique_days = sorted(work["date"].dt.strftime("%Y-%m-%d").unique())
-    return unique_days[-days:]
-
-
 def _union_daily_dates(frames: list[pd.DataFrame], days: int) -> list[str]:
-    """多市场交易日并集，取最后 N 天。
-
-    用并集（而非交集）可保证：某市场当天不开市/缺数据时该位置为 None，
-    但不会因为自身日历落后就把整条序列判空。
-    """
     all_days: set[str] = set()
     for frame in frames:
         if frame is None or frame.empty:
@@ -615,45 +694,36 @@ def build_macro_json(
     northbound_all: pd.DataFrame,
     freshness: dict[str, str],
 ) -> dict:
-    """生成看板直接消费的 macro_data.json。
-
-    约定：
-    - dates.30d / dates.5y 的粒度与该市场的流量数组严格对齐
-    - market_flows.*: 方向性成交额代理（单位：原币，元/港元）
-    - sector_chg.*:  窗口涨跌幅（%）
-    """
     us = us_all.copy()
     etf = etf_all.copy()
     us["date"] = pd.to_datetime(us["date"])
     etf["date"] = pd.to_datetime(etf["date"])
 
-    # ---- 日期轴 ----
-    # 30 日窗口取「美股 + A/港 ETF」交易日并集：单一市场的日历可能整体落后
-    # （如 yfinance 停更），用并集可避免该市场序列被静默清空。
     dates_30d = _union_daily_dates([us, etf], WINDOW_30D_TRADING_DAYS)
     dates_5y = _month_list(us, 60)
 
-    # ---- 美股：30 日逐日 + 5 年月度 ----
     us_daily_30 = us
     us_monthly = build_market_monthly(us, "ticker")
     us_monthly_5y = us_monthly[us_monthly["month"].isin(dates_5y)]
-    # 月度流量按日期轴对齐（月度轴用 month 字符串）
     us_flow_5y = {}
     for ticker, item in us_monthly_5y.groupby("ticker", sort=False):
         lookup = dict(zip(item["month"], item["directional_turnover_proxy"]))
-        us_flow_5y[str(ticker)] = [_clean_number(lookup.get(m)) for m in dates_5y]
+        us_flow_5y[str(ticker)] = [
+            _clean_number(lookup.get(m)) for m in dates_5y
+        ]
 
-    # ---- A股 / 港股 ----
     cn = etf[etf["market"] == "A股"]
     hk = etf[etf["market"] == "港股"]
-    cn_monthly = build_market_monthly(cn, "code") if not cn.empty else pd.DataFrame()
-    hk_monthly = build_market_monthly(hk, "code") if not hk.empty else pd.DataFrame()
+    cn_monthly = (
+        build_market_monthly(cn, "code") if not cn.empty else pd.DataFrame()
+    )
+    hk_monthly = (
+        build_market_monthly(hk, "code") if not hk.empty else pd.DataFrame()
+    )
 
     def flow_30d(frame: pd.DataFrame, col: str) -> dict:
         if frame.empty:
             return {}
-        # 不做 isin 预过滤：_series_by_code 会按轴逐日取值，缺失日自然为 None，
-        # 预过滤反而会在日历不重叠时把整段序列清空。
         return _series_by_code(frame, col, dates_30d)
 
     def flow_month(
@@ -664,26 +734,31 @@ def build_macro_json(
         work = monthly[monthly["month"].isin(dates)]
         out = {}
         for code, item in work.groupby(col, sort=False):
-            lookup = dict(zip(item["month"], item["directional_turnover_proxy"]))
+            lookup = dict(
+                zip(item["month"], item["directional_turnover_proxy"])
+            )
             out[str(code)] = [_clean_number(lookup.get(m)) for m in dates]
         return out
 
-    # ---- 南向资金（港股）月度 ----
     sb = southbound_all.copy()
     sb["date"] = pd.to_datetime(sb["date"])
     sb_monthly = build_cross_border_monthly(sb)
     sb_lookup = dict(
-        zip(sb_monthly["month"], pd.to_numeric(sb_monthly["net_buy_100m_cny"], errors="coerce"))
+        zip(
+            sb_monthly["month"],
+            pd.to_numeric(sb_monthly["net_buy_100m_cny"], errors="coerce"),
+        )
     )
     south_5y = [_clean_number(sb_lookup.get(m)) for m in dates_5y]
 
     since_30d = todays - dt.timedelta(days=30)
     since_5y = five_years_ago(todays)
 
-    # 注意：south_bound 单位是亿人民币，与 ETF 的成交额口径不同，单独标注
     payload = {
         "meta": {
-            "updated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "updated_at": dt.datetime.now(dt.timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S UTC"
+            ),
             "status": "ok",
             "source": (
                 "美股 11 板块=yfinance 行情；A股/港股 ETF=akshare 行情；"
@@ -703,7 +778,9 @@ def build_macro_json(
             "5y": dates_5y,
         },
         "market_flows": {
-            "us_sectors_30d": _series_by_code(us_daily_30, "ticker", dates_30d),
+            "us_sectors_30d": _series_by_code(
+                us_daily_30, "ticker", dates_30d
+            ),
             "us_sectors_5y": us_flow_5y,
             "cn_sectors_30d": flow_30d(cn, "code"),
             "cn_sectors_5y": flow_month(cn_monthly, dates_5y, "code"),
@@ -713,10 +790,18 @@ def build_macro_json(
         "sector_chg": {
             "us_30d": _change_since(us, "ticker", since_30d),
             "us_5y": _change_since(us, "ticker", since_5y),
-            "cn_30d": _change_since(cn, "code", since_30d) if not cn.empty else {},
-            "cn_5y": _change_since(cn, "code", since_5y) if not cn.empty else {},
-            "hk_30d": _change_since(hk, "code", since_30d) if not hk.empty else {},
-            "hk_5y": _change_since(hk, "code", since_5y) if not hk.empty else {},
+            "cn_30d": (
+                _change_since(cn, "code", since_30d) if not cn.empty else {}
+            ),
+            "cn_5y": (
+                _change_since(cn, "code", since_5y) if not cn.empty else {}
+            ),
+            "hk_30d": (
+                _change_since(hk, "code", since_30d) if not hk.empty else {}
+            ),
+            "hk_5y": (
+                _change_since(hk, "code", since_5y) if not hk.empty else {}
+            ),
         },
         "source_meta": {
             "us_flows": {
@@ -741,7 +826,9 @@ def build_macro_json(
             },
             "hk_southbound": {
                 "provider": "东方财富 RPT_MUTUAL_DEAL_HISTORY",
-                "caliber": "港股通真实成交净买额（沪港通 002 + 深港通 004 合并）",
+                "caliber": (
+                    "港股通真实成交净买额（沪港通 002 + 深港通 004 合并）"
+                ),
                 "unit": "亿元人民币",
                 "latest_date": freshness.get("南向"),
             },
@@ -760,8 +847,9 @@ def build_macro_json(
 # ---------------------------------------------------------------------------
 # 新鲜度校验
 # ---------------------------------------------------------------------------
-def check_freshness(frames: dict[str, pd.DataFrame], today: dt.date) -> tuple[dict[str, str], list[str]]:
-    """返回 (各市场最新日期, 告警列表)。"""
+def check_freshness(
+    frames: dict[str, pd.DataFrame], today: dt.date
+) -> tuple[dict[str, str], list[str]]:
     latest: dict[str, str] = {}
     warnings: list[str] = []
     for label, frame in frames.items():
@@ -779,25 +867,35 @@ def check_freshness(frames: dict[str, pd.DataFrame], today: dt.date) -> tuple[di
         age = (today - newest).days
         if age > STALE_DAYS_ERROR:
             warnings.append(
-                f"[失败] {label} 最新数据 {newest} 距今 {age} 天（>{STALE_DAYS_ERROR}），数据源疑似失效"
+                f"[失败] {label} 最新数据 {newest} 距今 {age}"
+                f" 天（>{STALE_DAYS_ERROR}），数据源疑似失效"
             )
         elif age > STALE_DAYS_WARNING:
-            warnings.append(f"[告警] {label} 最新数据 {newest} 距今 {age} 天（>{STALE_DAYS_WARNING}）")
+            warnings.append(
+                f"[告警] {label} 最新数据 {newest} 距今 {age}"
+                f" 天（>{STALE_DAYS_WARNING}）"
+            )
     return latest, warnings
 
 
 # ---------------------------------------------------------------------------
 # 汇总打印
 # ---------------------------------------------------------------------------
-def print_market_summary(title: str, frame: pd.DataFrame, code_column: str) -> None:
+def print_market_summary(
+    title: str, frame: pd.DataFrame, code_column: str
+) -> None:
     print(f"\n=== {title} ===")
     enriched = add_flow_indicators(frame, code_column)
     for code, item in enriched.groupby(code_column, sort=False):
         item = item.sort_values("date")
-        change = (item["adj_close"].iloc[-1] / item["adj_close"].iloc[0] - 1) * 100
+        change = (
+            item["adj_close"].iloc[-1] / item["adj_close"].iloc[0] - 1
+        ) * 100
         directional = item["directional_turnover_proxy"].sum() / 1e8
         latest_mfi = item["mfi_14"].dropna()
-        mfi_text = f"{latest_mfi.iloc[-1]:.1f}" if not latest_mfi.empty else "N/A"
+        mfi_text = (
+            f"{latest_mfi.iloc[-1]:.1f}" if not latest_mfi.empty else "N/A"
+        )
         print(
             f"{str(code):8s} {item['name'].iloc[-1]:12s} "
             f"涨跌 {change:+8.2f}%  "
@@ -852,12 +950,20 @@ def main() -> None:
     write_csv_atomic(NORTHBOUND_MONTHLY_FILE, northbound_monthly)
     write_csv_atomic(SOUTHBOUND_MONTHLY_FILE, southbound_monthly)
 
-    # ---- 新鲜度校验（关键：让静默停更变得可见） ----
+    # ---- 新鲜度校验 ----
     freshness, warnings = check_freshness(
         {
             "美股": us_all,
-            "A股": etf_all[etf_all["market"] == "A股"] if "market" in etf_all else etf_all,
-            "港股": etf_all[etf_all["market"] == "港股"] if "market" in etf_all else etf_all,
+            "A股": (
+                etf_all[etf_all["market"] == "A股"]
+                if "market" in etf_all
+                else etf_all
+            ),
+            "港股": (
+                etf_all[etf_all["market"] == "港股"]
+                if "market" in etf_all
+                else etf_all
+            ),
             "北向": northbound_all,
             "南向": southbound_all,
         },
