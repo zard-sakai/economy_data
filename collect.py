@@ -3,7 +3,7 @@
 口径升级 (Schema Version 5 - 方案二: 交易所官方 API 直连)：
 1. 北向/南向资金：真实跨境成交净买额（东方财富 RPT_MUTUAL_DEAL_HISTORY），单位为亿元人民币。
 2. 美股 / A股 / 港股 ETF：
-   - 价格行情：yfinance 批量拉取，彻底解决 GitHub Actions 海外 IP 封锁问题。
+   - 价格行情：yfinance 批量拉取，切片切分对齐（解决不同市场交易日历导致的数组长度不匹配问题）。
    - A股 ETF 官方份额：直连上交所 (SSE) 与深交所 (SZSE) 官方 API 提取已发行总份额，对海外 IP 零拦截！
    - 真实资金流向：True Net Flow = ΔShares Outstanding * Close Price / 10^8 (亿元)。
 
@@ -27,7 +27,7 @@ import requests
 import yfinance as yf
 
 
-SCHEMA_VERSION = 5  # 方案二：直连 SSE/SZSE 交易所官方 API 提取 ETF 权威份额
+SCHEMA_VERSION = 5  # 修复 yfinance MultiIndex 提取时的长度不匹配Bug
 DATA_DIR = Path(__file__).resolve().parent / "cross_market_data"
 STATE_FILE = DATA_DIR / "state.json"
 US_FILE = DATA_DIR / "us_spdr_daily.csv"
@@ -80,7 +80,7 @@ CN_HK_ETFS = {
     "512000": ("券商ETF", "A股", "金融先锋", "512000.SS", "CNY"),
     "159995": ("芯片ETF", "A股", "TMT硬科技", "159995.SZ", "CNY"),
     "512010": ("医药ETF", "A股", "医药防御", "512010.SS", "CNY"),
-    "516160": ("新能源ETF", "A股", "绿色制造", "516160.SS", "CNY"),
+    "516160": ("新能源ETF", "A股", "绿色制造", "516160.SZ", "CNY"),
     "159928": ("主要消费ETF", "A股", "消费复苏", "159928.SZ", "CNY"),
     "513050": ("恒生科技ETF", "港股", "港股成长", "513050.SS", "CNY"),
     "510900": ("H股ETF", "港股", "国企价值", "510900.SS", "CNY"),
@@ -155,9 +155,8 @@ def fetch_sse_official_shares(code: str) -> pd.DataFrame:
 def fetch_szse_official_shares(code: str) -> pd.DataFrame:
     """深交所官方 API：直接拉取深市 ETF 历史已发行总份额"""
     try:
-        url = f"http://www.szse.cn/api/report/ShowReport/data?SHOWPREPAGE=true&CATALOGID=1945&txtQueryDate="
+        url = "http://www.szse.cn/api/report/ShowReport/data?SHOWPREPAGE=true&CATALOGID=1945&txtQueryDate="
         res = requests.get(url, headers=DEFAULT_HEADERS, timeout=10)
-        # 深交所公开数据结构解析
         data = res.json()
         if isinstance(data, list) and len(data) > 0:
             df = pd.DataFrame(data[0].get("data", []))
@@ -203,7 +202,7 @@ def fetch_exchange_official_shares(code: str) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# 美股与 A/H 股行情获取（yfinance + 交易所官方份额结合）
+# yfinance 提取助手（对齐索引与数据长度）
 # ---------------------------------------------------------------------------
 def yahoo_download(
     symbols: list[str], start: dt.date, end: dt.date
@@ -228,15 +227,40 @@ def yahoo_download(
     raise RuntimeError(f"Yahoo Finance 未返回数据: {symbols}（{last_error}）")
 
 
-def yahoo_series(raw: pd.DataFrame, field: str, symbol: str) -> pd.Series:
-    if isinstance(raw.columns, pd.MultiIndex):
-        if field in raw.columns.levels[0]:
-            return raw[field][symbol]
-        elif symbol in raw.columns.levels[0]:
-            return raw[symbol][field]
-    return raw[field]
+def extract_ticker_df(raw_price: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """对 MultiIndex 行情结构进行同索引切片，防止不同标的交易日历差异导致长度错位。"""
+    if not isinstance(raw_price.columns, pd.MultiIndex):
+        df_sym = raw_price.copy()
+    else:
+        if ticker in raw_price.columns.levels[0]:
+            df_sym = raw_price[ticker].copy()
+        elif ticker in raw_price.columns.levels[1]:
+            df_sym = raw_price.xs(ticker, axis=1, level=1).copy()
+        else:
+            return pd.DataFrame()
+
+    col_map = {
+        "Open": "open",
+        "High": "high",
+        "Low": "low",
+        "Close": "close",
+        "Adj Close": "adj_close",
+        "Volume": "volume",
+    }
+    df_sym = df_sym.rename(columns=col_map)
+    keep = ["open", "high", "low", "close", "adj_close", "volume"]
+    existing = [c for c in keep if c in df_sym.columns]
+    df_sym = df_sym[existing].dropna(subset=["close"])
+    if df_sym.empty:
+        return pd.DataFrame()
+
+    df_sym["date"] = pd.to_datetime(df_sym.index).tz_localize(None)
+    return df_sym.sort_values("date")
 
 
+# ---------------------------------------------------------------------------
+# 美股与 A/H 股行情获取
+# ---------------------------------------------------------------------------
 def fetch_us(start: dt.date, end: dt.date) -> pd.DataFrame:
     symbols = list(US_ETFS.keys())
     raw = yahoo_download(symbols, start, end)
@@ -244,30 +268,9 @@ def fetch_us(start: dt.date, end: dt.date) -> pd.DataFrame:
 
     for ticker, (name, role) in US_ETFS.items():
         try:
-            close_s = yahoo_series(raw, "Close", ticker).dropna()
-            if close_s is None or close_s.empty:
+            item = extract_ticker_df(raw, ticker)
+            if item.empty:
                 continue
-
-            open_s = yahoo_series(raw, "Open", ticker)
-            high_s = yahoo_series(raw, "High", ticker)
-            low_s = yahoo_series(raw, "Low", ticker)
-            adj_close_s = yahoo_series(raw, "Adj Close", ticker)
-            volume_s = yahoo_series(raw, "Volume", ticker)
-
-            item = pd.DataFrame(
-                {
-                    "date": close_s.index,
-                    "open": open_s,
-                    "high": high_s,
-                    "low": low_s,
-                    "close": close_s,
-                    "adj_close": adj_close_s,
-                    "volume": volume_s,
-                }
-            ).dropna(subset=["close"])
-
-            item["date"] = pd.to_datetime(item["date"]).dt.tz_localize(None)
-            item = item.sort_values("date")
 
             shares_series = pd.Series(dtype=float)
             try:
@@ -338,30 +341,9 @@ def fetch_cn_hk_etfs(start: dt.date, end: dt.date) -> pd.DataFrame:
         currency,
     ) in CN_HK_ETFS.items():
         try:
-            close_s = yahoo_series(raw_price, "Close", yahoo_symbol).dropna()
-            if close_s is None or close_s.empty:
+            item = extract_ticker_df(raw_price, yahoo_symbol)
+            if item.empty:
                 continue
-
-            open_s = yahoo_series(raw_price, "Open", yahoo_symbol)
-            high_s = yahoo_series(raw_price, "High", yahoo_symbol)
-            low_s = yahoo_series(raw_price, "Low", yahoo_symbol)
-            adj_close_s = yahoo_series(raw_price, "Adj Close", yahoo_symbol)
-            volume_s = yahoo_series(raw_price, "Volume", yahoo_symbol)
-
-            item = pd.DataFrame(
-                {
-                    "date": close_s.index,
-                    "open": open_s,
-                    "high": high_s,
-                    "low": low_s,
-                    "close": close_s,
-                    "adj_close": adj_close_s,
-                    "volume": volume_s,
-                }
-            ).dropna(subset=["close"])
-
-            item["date"] = pd.to_datetime(item["date"]).dt.tz_localize(None)
-            item = item.sort_values("date")
 
             # 方案二核心：调用交易所官方 API 提取真实份额
             shares_df = fetch_exchange_official_shares(code)
