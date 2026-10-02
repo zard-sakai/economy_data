@@ -1,7 +1,6 @@
-
 name: Cross Market Data Collector
 
-on:
+'on':
   schedule:
     - cron: '0 22 * * *'
   workflow_dispatch:
