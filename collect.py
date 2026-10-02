@@ -3,7 +3,7 @@
 口径升级 (Schema Version 5 - 方案二: 交易所官方 API 直连)：
 1. 北向/南向资金：真实跨境成交净买额（东方财富 RPT_MUTUAL_DEAL_HISTORY），单位为亿元人民币。
 2. 美股 / A股 / 港股 ETF：
-   - 价格行情：yfinance 批量拉取，切片同步对齐（解决交易日历差异导致的数组长度错位）。
+   - 价格行情：yfinance 批量拉取，使用 strip_tz 修复 DatetimeIndex 时区转换 Bug。
    - A股 ETF 官方份额：HTTPS 直连上交所 (SSE) 与深交所 (SZSE) 官方 API 提取已发行总份额，对海外 IP 零拦截！
    - 真实资金流向：True Net Flow = ΔShares Outstanding * Close Price / 10^8 (亿元)。
 
@@ -27,7 +27,7 @@ import requests
 import yfinance as yf
 
 
-SCHEMA_VERSION = 5  # 修复 516160.SS 代码拼写、上交所 HTTPS 协议与 MultiIndex 切片对齐 Bug
+SCHEMA_VERSION = 5  # 修复 DatetimeIndex 的 .dt 属性报错问题
 DATA_DIR = Path(__file__).resolve().parent / "cross_market_data"
 STATE_FILE = DATA_DIR / "state.json"
 US_FILE = DATA_DIR / "us_spdr_daily.csv"
@@ -85,7 +85,7 @@ CN_HK_ETFS = {
     "512000": ("券商ETF", "A股", "金融先锋", "512000.SS", "CNY"),
     "159995": ("芯片ETF", "A股", "TMT硬科技", "159995.SZ", "CNY"),
     "512010": ("医药ETF", "A股", "医药防御", "512010.SS", "CNY"),
-    "516160": ("新能源ETF", "A股", "绿色制造", "516160.SS", "CNY"),  # 修正: .SZ -> .SS
+    "516160": ("新能源ETF", "A股", "绿色制造", "516160.SS", "CNY"),
     "159928": ("主要消费ETF", "A股", "消费复苏", "159928.SZ", "CNY"),
     "513050": ("恒生科技ETF", "港股", "港股成长", "513050.SS", "CNY"),
     "510900": ("H股ETF", "港股", "国企价值", "510900.SS", "CNY"),
@@ -98,6 +98,14 @@ CN_HK_ETFS = {
 # ---------------------------------------------------------------------------
 # 状态与工具
 # ---------------------------------------------------------------------------
+def strip_tz(dt_obj):
+    """安全剥离 DatetimeIndex 或 Series 的时区信息"""
+    d = pd.to_datetime(dt_obj)
+    if getattr(d, "tz", None) is not None:
+        return d.tz_localize(None)
+    return d
+
+
 def is_initialized() -> bool:
     required = (
         US_FILE,
@@ -255,7 +263,7 @@ def extract_ticker_df(raw_price: pd.DataFrame, ticker: str) -> pd.DataFrame:
         if df_sym.empty:
             return pd.DataFrame()
 
-        df_sym["date"] = pd.to_datetime(df_sym.index).dt.tz_localize(None)
+        df_sym["date"] = strip_tz(df_sym.index)
         return df_sym.sort_values("date").reset_index(drop=True)
     except Exception as exc:  # noqa: BLE001
         print(f"ℹ️ 行情提取异常 ({ticker}): {exc}", file=sys.stderr)
@@ -289,9 +297,7 @@ def fetch_us(start: dt.date, end: dt.date) -> pd.DataFrame:
                 shares_df = (
                     pd.DataFrame(
                         {
-                            "date": pd.to_datetime(
-                                shares_series.index
-                            ).dt.tz_localize(None),
+                            "date": strip_tz(shares_series.index),
                             "shares_outstanding": shares_series.values,
                         }
                     )
@@ -352,7 +358,6 @@ def fetch_cn_hk_etfs(start: dt.date, end: dt.date) -> pd.DataFrame:
             if item.empty:
                 continue
 
-            # 方案二核心：调用交易所官方 API 提取真实份额
             shares_df = fetch_exchange_official_shares(code)
             if not shares_df.empty:
                 item = pd.merge_asof(
@@ -366,7 +371,6 @@ def fetch_cn_hk_etfs(start: dt.date, end: dt.date) -> pd.DataFrame:
 
             item["shares_outstanding"] = item["shares_outstanding"].ffill()
             item["shares_change_1d"] = item["shares_outstanding"].diff()
-            # 真实申赎净额（亿元） = Δ份额 * 单位收盘价 / 10^8
             item["true_net_flow_100m_cny"] = (
                 item["shares_change_1d"] * item["close"]
             ) / 100000000.0
