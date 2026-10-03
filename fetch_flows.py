@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ----------------------------------------------------------------------
-# 基础工具与算法层
+# 基础工具与专业量化算法层
 # ----------------------------------------------------------------------
 def safe_yf_ticker_history(ticker_symbol, period="1mo"):
     """单标的安全抓取，拉取 1 个月数据以确保包含充足的有效交易日"""
@@ -25,48 +25,54 @@ def safe_yf_ticker_history(ticker_symbol, period="1mo"):
 
 def calculate_estimated_flow(df, days=7):
     """
-    通用伪资金流计算算法（修正版）：基于【昨收价】计算
-    公式：(当日收盘 - 昨日收盘) / 昨日收盘 * 放大系数 * 当日成交额
+    【核心升级】：量化级资金流估算 (基于 Accumulation/Distribution 累积派发原理)
+    不再使用简单的涨跌幅，而是通过日内最高、最低与收盘价的相对位置测算真实的买卖压承接力。
     """
     flows = []
-    if df.empty or len(df) < 2:
+    if df.empty:
         return flows
     
-    # 增加昨收价列，计算真实的跨日涨跌驱动
-    df['Prev_Close'] = df['Close'].shift(1)
-    
-    # 剔除没有昨收价的第一天，并截取最近的 days 天
-    tail_df = df.dropna(subset=['Prev_Close']).tail(days)
+    # 截取最近的 days 天
+    tail_df = df.tail(days)
     
     for date, row in tail_df.iterrows():
-        close = float(row['Close'])
-        prev_close = float(row['Prev_Close'])
+        close_p = float(row['Close'])
+        high_p = float(row['High'])
+        low_p = float(row['Low'])
         vol = float(row['Volume'])
-        turnover = close * vol
         
-        # 使用相对于昨天的涨跌幅
-        pct = (close - prev_close) / prev_close if prev_close else 0
-        # 放大系数钳制在 -100% 到 100% 之间
-        multiplier = max(min(pct * 10, 1.0), -1.0)
-        estimated_flow = turnover * multiplier
+        # 1. 计算资金流向乘数 (Money Flow Multiplier, MFM)
+        # 衡量收盘价在当天震荡区间的位置。1代表收在最高点(纯买盘)，-1代表收在最低点(纯卖盘)
+        if high_p != low_p:
+            mfm = ((close_p - low_p) - (high_p - close_p)) / (high_p - low_p)
+        else:
+            mfm = 0.0  # 类似一字涨停/跌停，无日内波动
+            
+        # 2. 计算典型价格 (Typical Price)
+        typical_price = (high_p + low_p + close_p) / 3.0
+        
+        # 3. 估算日内真实买卖净额 (Estimated Money Flow Volume)
+        # 结果为正表示多头承接盘胜出，为负表示空头抛压胜出
+        estimated_flow = mfm * vol * typical_price
         
         flows.append({
             "date": date.strftime('%Y-%m-%d'),
             "net_flow_usd": round(estimated_flow, 2),
-            "close_price": round(close, 2)
+            "close_price": round(close_p, 2)
         })
+        
     return flows
 
 def normalize_to_intensity(data_dict):
     """
-    【核心归一化引擎】：将绝对资金流转化为自身波动极值的 -100 到 +100 强度分数。
-    解决跨市场、跨币种、跨口径数据无法直接在一个柱状图里比大小的问题。
+    【宏观归一化引擎】：将绝对资金流转化为自身波动极值的 -100 到 +100 强度分数。
+    解决跨市场(A股 vs 美股)、跨币种(人民币 vs 美元)、跨口径无法同台对比的问题。
     """
     for asset, flows in data_dict.items():
         if not flows:
             continue
         
-        # 寻找该资产在当前周期内的资金净流量绝对值的最大值（作为 100% 动能基准）
+        # 寻找该资产在当前周期内绝对值的最大值（作为 100% 动能基准标尺）
         abs_flows = [abs(f.get('net_flow_usd', f.get('net_flow_cny_100m', f.get('net_flow_hkd_100m', 0)))) for f in flows]
         max_abs = max(abs_flows) if abs_flows else 0
         
@@ -116,7 +122,7 @@ def fetch_cn_market_flow_multi_source():
     except Exception:
         pass
 
-    # 终极保底：国庆长假等国内接口阻断时，用美股沪深300ETF (ASHR) 倒推
+    # 终极保底：长假或接口彻底熔断时，用美股沪深300ETF (ASHR) A/D模型倒推
     print("  [A股-备用线路] 国内接口异常/休市，切换至美股 ASHR (沪深300) 倒推 7 天资金流...")
     ashr_df = safe_yf_ticker_history("ASHR")
     if not ashr_df.empty:
@@ -172,7 +178,7 @@ def fetch_board1_macro_assets_7d():
     except Exception:
         macro_data["原油"] = []
 
-    # 6. 加密货币 (DefiLlama 稳定币市值增量)
+    # 6. 加密货币 (DefiLlama 稳定币净法币流入)
     try:
         url = "https://stablecoins.llama.fi/stablecoincharts/all"
         res = requests.get(url, timeout=10).json()
@@ -198,7 +204,7 @@ def fetch_board1_macro_assets_7d():
     except Exception:
         macro_data["类现金资产"] = []
 
-    # 进行资金强度归一化 (注入 intensity_score)
+    # 【重要】进行资金动能强度归一化 (注入 intensity_score，范围 -100 到 +100)
     macro_data = normalize_to_intensity(macro_data)
 
     return {"status": "success", "data": macro_data}
@@ -340,4 +346,4 @@ if __name__ == "__main__":
     with open(file_name, "w", encoding="utf-8") as f:
         json.dump(final_json, f, ensure_ascii=False, indent=4)
         
-    print(f"\n✅ 全量工业级重构数据已成功写入 {file_name}")
+    print(f"\n✅ 全量专业级数据（含 A/D 量价模型与强度归一化）已成功写入 {file_name}")
