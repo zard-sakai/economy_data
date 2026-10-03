@@ -15,7 +15,7 @@
   7. 剔除已废弃的 datetime.utcnow()，改用 timezone-aware。
 
 运行：
-  python3 fetch_fund_flow.py --out fund_flow_data.json
+  python3 fetch_flows.py --out fund_flow_data.json
 """
 
 import argparse
@@ -58,8 +58,25 @@ FX_TO_USD = {
     "USD": 1.00,
 }
 
-RETRY = 3
-RETRY_SLEEP = 1.5
+RETRY = 4                 # 重试次数（含首次）
+RETRY_SLEEP = 2.0         # 指数退避基数（秒）
+REQUEST_INTERVAL = 1.2    # 相邻外网请求最小间隔（秒），降低被限流概率
+_last_request_ts = 0.0
+
+
+def _throttle() -> None:
+    """全局请求节流：保证相邻外网请求间隔 ≥ REQUEST_INTERVAL 秒。"""
+    global _last_request_ts
+    delta = time.time() - _last_request_ts
+    if delta < REQUEST_INTERVAL:
+        time.sleep(REQUEST_INTERVAL - delta)
+    _last_request_ts = time.time()
+
+
+def _is_rate_limited(exc: Exception) -> bool:
+    """识别限流类异常（Yahoo 429）。"""
+    msg = str(exc).lower()
+    return "too many requests" in msg or "429" in msg or "rate limit" in msg
 
 
 def fx(native_unit: str) -> float:
@@ -68,22 +85,29 @@ def fx(native_unit: str) -> float:
 
 
 # ----------------------------------------------------------------------
-# 工具：带重试与日志的抓取
+# 工具：带「全局节流 + 指数退避」的抓取
 # ----------------------------------------------------------------------
 def yf_history(ticker: str, period: str = "1mo") -> pd.DataFrame:
-    """单标的安全抓取，失败重试并记录日志。"""
+    """单标的安全抓取：全局节流 + 指数退避重试，失败记录日志。"""
     if yf is None:
         log.error("yfinance 未安装，无法抓取 %s", ticker)
         return pd.DataFrame()
     for attempt in range(1, RETRY + 1):
+        _throttle()
         try:
             df = yf.Ticker(ticker).history(period=period)
             if df is not None and not df.empty:
                 return df
             log.warning("[%s] 第 %d 次返回空数据", ticker, attempt)
         except Exception as exc:  # noqa: BLE001
-            log.warning("[%s] 第 %d 次抓取异常: %s", ticker, attempt, exc)
-        time.sleep(RETRY_SLEEP)
+            limited = _is_rate_limited(exc)
+            log.warning("[%s] 第 %d 次抓取异常%s: %s",
+                        ticker, attempt, "（限流）" if limited else "", exc)
+            if limited:
+                # 被限流时退避更久，避免连续打空
+                time.sleep(RETRY_SLEEP * (2 ** attempt) + 3.0)
+                continue
+        time.sleep(RETRY_SLEEP * attempt)
     log.error("[%s] 重试 %d 次后仍失败", ticker, RETRY)
     return pd.DataFrame()
 
@@ -162,6 +186,7 @@ def fetch_cn_main_flow(days: int = 7) -> tuple[list, str]:
     if ak is not None:
         # 主线路
         try:
+            _throttle()
             df = ak.stock_market_fund_flow()
             if df is not None and not df.empty:
                 out = []
@@ -182,6 +207,7 @@ def fetch_cn_main_flow(days: int = 7) -> tuple[list, str]:
 
         # 备线路
         try:
+            _throttle()
             df2 = ak.stock_market_fund_flow_hist(symbol="上证主板")
             if df2 is not None and not df2.empty:
                 out = []
@@ -217,6 +243,7 @@ def fetch_hk_southbound(days: int = 7) -> tuple[list, str]:
         # 沪 + 深 合计更接近「南向」全貌
         out = []
         for indicator in ("港股通(沪)", "港股通(深)"):
+            _throttle()
             df = ak.stock_hk_ggt_historical(indicator=indicator)
             if df is None or df.empty:
                 continue
@@ -251,6 +278,7 @@ def fetch_stablecoin_cap_change(days: int = 7) -> tuple[list, str]:
     url = "https://stablecoins.llama.fi/stablecoincharts/all"
     for attempt in range(1, RETRY + 1):
         try:
+            _throttle()
             res = requests.get(url, timeout=10).json()
             if not isinstance(res, list) or len(res) < 2:
                 raise ValueError("返回结构异常")
@@ -357,6 +385,7 @@ def fetch_a_sector(sector: str, days: int = 7) -> list:
     if ak is None:
         return []
     try:
+        _throttle()
         df = ak.stock_sector_fund_flow_hist(symbol=sector)
         if df is not None and not df.empty:
             out = []
