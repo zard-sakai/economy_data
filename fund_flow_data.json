@@ -1,265 +1,314 @@
 {
-    "update_time_utc": "2026-10-03 10:17:57",
+    "update_time_utc": "2026-10-03 10:35:45",
     "board_1_macro_assets_7d": {
         "status": "success",
         "data": {
             "A股": [
                 {
-                    "date": "2026-09-24",
-                    "net_flow_usd": -7490948.98,
-                    "close_price": 33.19
+                    "date": "2026-09-21",
+                    "net_flow_cny_100m": 86.38,
+                    "source": "Eastmoney",
+                    "intensity_score": 9.5
                 },
                 {
-                    "date": "2026-09-25",
-                    "net_flow_usd": -2911556.67,
-                    "close_price": 33.09
+                    "date": "2026-09-22",
+                    "net_flow_cny_100m": -312.16,
+                    "source": "Eastmoney",
+                    "intensity_score": -34.2
+                },
+                {
+                    "date": "2026-09-23",
+                    "net_flow_cny_100m": -394.84,
+                    "source": "Eastmoney",
+                    "intensity_score": -43.2
+                },
+                {
+                    "date": "2026-09-24",
+                    "net_flow_cny_100m": -652.15,
+                    "source": "Eastmoney",
+                    "intensity_score": -71.4
                 },
                 {
                     "date": "2026-09-28",
-                    "net_flow_usd": -43836879.3,
-                    "close_price": 32.51
+                    "net_flow_cny_100m": -914.0,
+                    "source": "Eastmoney",
+                    "intensity_score": -100.0
                 },
                 {
                     "date": "2026-09-29",
-                    "net_flow_usd": 6018703.77,
-                    "close_price": 32.66
+                    "net_flow_cny_100m": 65.24,
+                    "source": "Eastmoney",
+                    "intensity_score": 7.1
                 },
                 {
                     "date": "2026-09-30",
-                    "net_flow_usd": 274027.88,
-                    "close_price": 32.67
-                },
-                {
-                    "date": "2026-10-01",
-                    "net_flow_usd": 3844920.17,
-                    "close_price": 32.75
-                },
-                {
-                    "date": "2026-10-02",
-                    "net_flow_usd": -7747420.06,
-                    "close_price": 32.51
+                    "net_flow_cny_100m": -136.28,
+                    "source": "Eastmoney",
+                    "intensity_score": -14.9
                 }
             ],
             "港股": [
                 {
                     "date": "2026-09-24",
                     "net_flow_usd": 1443301.09,
-                    "close_price": 22.47
+                    "close_price": 22.47,
+                    "intensity_score": 7.8
                 },
                 {
                     "date": "2026-09-25",
                     "net_flow_usd": -5480721.19,
-                    "close_price": 22.26
+                    "close_price": 22.26,
+                    "intensity_score": -29.6
                 },
                 {
                     "date": "2026-09-28",
                     "net_flow_usd": 5857995.24,
-                    "close_price": 22.41
+                    "close_price": 22.41,
+                    "intensity_score": 31.6
                 },
                 {
                     "date": "2026-09-29",
                     "net_flow_usd": -4735738.69,
-                    "close_price": 22.22
+                    "close_price": 22.22,
+                    "intensity_score": -25.6
                 },
                 {
                     "date": "2026-09-30",
                     "net_flow_usd": -3277385.95,
-                    "close_price": 22.11
+                    "close_price": 22.11,
+                    "intensity_score": -17.7
                 },
                 {
                     "date": "2026-10-01",
                     "net_flow_usd": 1426997.99,
-                    "close_price": 22.16
+                    "close_price": 22.16,
+                    "intensity_score": 7.7
                 },
                 {
                     "date": "2026-10-02",
                     "net_flow_usd": -18525500.39,
-                    "close_price": 21.57
+                    "close_price": 21.57,
+                    "intensity_score": -100.0
                 }
             ],
             "美股": [
                 {
                     "date": "2026-09-24",
                     "net_flow_usd": -276872091.48,
-                    "close_price": 767.18
+                    "close_price": 767.18,
+                    "intensity_score": -10.5
                 },
                 {
                     "date": "2026-09-25",
                     "net_flow_usd": 1537305929.0,
-                    "close_price": 771.35
+                    "close_price": 771.35,
+                    "intensity_score": 58.3
                 },
                 {
                     "date": "2026-09-28",
                     "net_flow_usd": -2432423576.96,
-                    "close_price": 765.61
+                    "close_price": 765.61,
+                    "intensity_score": -92.3
                 },
                 {
                     "date": "2026-09-29",
                     "net_flow_usd": -519469699.52,
-                    "close_price": 764.2
+                    "close_price": 764.2,
+                    "intensity_score": -19.7
                 },
                 {
                     "date": "2026-09-30",
                     "net_flow_usd": -973128194.39,
-                    "close_price": 762.63
+                    "close_price": 762.63,
+                    "intensity_score": -36.9
                 },
                 {
                     "date": "2026-10-01",
                     "net_flow_usd": 649980207.04,
-                    "close_price": 763.99
+                    "close_price": 763.99,
+                    "intensity_score": 24.7
                 },
                 {
                     "date": "2026-10-02",
                     "net_flow_usd": 2635671703.66,
-                    "close_price": 769.64
+                    "close_price": 769.64,
+                    "intensity_score": 100.0
                 }
             ],
             "黄金": [
                 {
                     "date": "2026-09-24",
                     "net_flow_usd": -79609679.82,
-                    "close_price": 391.69
+                    "close_price": 391.69,
+                    "intensity_score": -3.6
                 },
                 {
                     "date": "2026-09-25",
                     "net_flow_usd": 133040672.12,
-                    "close_price": 393.41
+                    "close_price": 393.41,
+                    "intensity_score": 6.0
                 },
                 {
                     "date": "2026-09-28",
                     "net_flow_usd": -2210080427.29,
-                    "close_price": 377.91
+                    "close_price": 377.91,
+                    "intensity_score": -100.0
                 },
                 {
                     "date": "2026-09-29",
                     "net_flow_usd": 409846955.46,
-                    "close_price": 382.89
+                    "close_price": 382.89,
+                    "intensity_score": 18.5
                 },
                 {
                     "date": "2026-09-30",
                     "net_flow_usd": -143063291.31,
-                    "close_price": 380.84
+                    "close_price": 380.84,
+                    "intensity_score": -6.5
                 },
                 {
                     "date": "2026-10-01",
                     "net_flow_usd": 117632168.92,
-                    "close_price": 382.76
+                    "close_price": 382.76,
+                    "intensity_score": 5.3
                 },
                 {
                     "date": "2026-10-02",
                     "net_flow_usd": -238216103.65,
-                    "close_price": 380.14
+                    "close_price": 380.14,
+                    "intensity_score": -10.8
                 }
             ],
             "原油": [
                 {
                     "date": "2026-09-24",
                     "net_flow_usd": 420021067.72,
-                    "close_price": 153.09
+                    "close_price": 153.09,
+                    "intensity_score": 92.0
                 },
                 {
                     "date": "2026-09-25",
                     "net_flow_usd": -331528505.96,
-                    "close_price": 148.33
+                    "close_price": 148.33,
+                    "intensity_score": -72.6
                 },
                 {
                     "date": "2026-09-28",
                     "net_flow_usd": 157704768.18,
-                    "close_price": 150.01
+                    "close_price": 150.01,
+                    "intensity_score": 34.6
                 },
                 {
                     "date": "2026-09-29",
                     "net_flow_usd": -456358863.97,
-                    "close_price": 143.35
+                    "close_price": 143.35,
+                    "intensity_score": -100.0
                 },
                 {
                     "date": "2026-09-30",
                     "net_flow_usd": 77955928.91,
-                    "close_price": 145.66
+                    "close_price": 145.66,
+                    "intensity_score": 17.1
                 },
                 {
                     "date": "2026-10-01",
                     "net_flow_usd": 266893301.55,
-                    "close_price": 150.02
+                    "close_price": 150.02,
+                    "intensity_score": 58.5
                 },
                 {
                     "date": "2026-10-02",
                     "net_flow_usd": -202013402.85,
-                    "close_price": 147.37
+                    "close_price": 147.37,
+                    "intensity_score": -44.3
                 }
             ],
             "加密货币": [
                 {
                     "date": "2026-09-27",
                     "net_flow_usd": 2290268954.0,
-                    "market_cap_usd": 310086306934.0
+                    "market_cap_usd": 310086306934.0,
+                    "intensity_score": 100.0
                 },
                 {
                     "date": "2026-09-28",
                     "net_flow_usd": 1383740891.0,
-                    "market_cap_usd": 311470047825.0
+                    "market_cap_usd": 311470047825.0,
+                    "intensity_score": 60.4
                 },
                 {
                     "date": "2026-09-29",
                     "net_flow_usd": -208237224.0,
-                    "market_cap_usd": 311261810601.0
+                    "market_cap_usd": 311261810601.0,
+                    "intensity_score": -9.1
                 },
                 {
                     "date": "2026-09-30",
                     "net_flow_usd": -61512796.0,
-                    "market_cap_usd": 311200297805.0
+                    "market_cap_usd": 311200297805.0,
+                    "intensity_score": -2.7
                 },
                 {
                     "date": "2026-10-01",
                     "net_flow_usd": -488873918.0,
-                    "market_cap_usd": 310711423887.0
+                    "market_cap_usd": 310711423887.0,
+                    "intensity_score": -21.3
                 },
                 {
                     "date": "2026-10-02",
                     "net_flow_usd": 805513752.0,
-                    "market_cap_usd": 311516937639.0
+                    "market_cap_usd": 311516937639.0,
+                    "intensity_score": 35.2
                 },
                 {
                     "date": "2026-10-03",
                     "net_flow_usd": 379004588.5,
-                    "market_cap_usd": 311895942227.5
+                    "market_cap_usd": 311895942227.5,
+                    "intensity_score": 16.5
                 }
             ],
             "类现金资产": [
                 {
                     "date": "2026-09-24",
                     "net_flow_usd": -1100542.02,
-                    "close_price": 91.32
+                    "close_price": 91.32,
+                    "intensity_score": -15.9
                 },
                 {
                     "date": "2026-09-25",
                     "net_flow_usd": 3095744.3,
-                    "close_price": 91.36
+                    "close_price": 91.36,
+                    "intensity_score": 44.6
                 },
                 {
                     "date": "2026-09-28",
                     "net_flow_usd": 1164807.77,
-                    "close_price": 91.37
+                    "close_price": 91.37,
+                    "intensity_score": 16.8
                 },
                 {
                     "date": "2026-09-29",
                     "net_flow_usd": 6110648.53,
-                    "close_price": 91.39
+                    "close_price": 91.39,
+                    "intensity_score": 88.1
                 },
                 {
                     "date": "2026-09-30",
                     "net_flow_usd": -1823757.89,
-                    "close_price": 91.38
+                    "close_price": 91.38,
+                    "intensity_score": -26.3
                 },
                 {
                     "date": "2026-10-01",
                     "net_flow_usd": 6939016.97,
-                    "close_price": 91.41
+                    "close_price": 91.41,
+                    "intensity_score": 100.0
                 },
                 {
                     "date": "2026-10-02",
                     "net_flow_usd": 2365540.34,
-                    "close_price": 91.43
+                    "close_price": 91.43,
+                    "intensity_score": 34.1
                 }
             ]
         }
@@ -682,39 +731,39 @@
                 ],
                 "金融": [
                     {
-                        "date": "2026-09-22",
-                        "net_flow_usd": 0.0,
-                        "close_price": 158.85
-                    },
-                    {
                         "date": "2026-09-23",
-                        "net_flow_usd": -0.0,
-                        "close_price": 157.6
+                        "net_flow_usd": -1485555318.25,
+                        "close_price": 84.66
                     },
                     {
                         "date": "2026-09-24",
-                        "net_flow_usd": -0.0,
-                        "close_price": 157.35
+                        "net_flow_usd": -28971120.52,
+                        "close_price": 84.6
                     },
                     {
                         "date": "2026-09-25",
-                        "net_flow_usd": -0.0,
-                        "close_price": 155.05
+                        "net_flow_usd": -449100204.13,
+                        "close_price": 83.78
                     },
                     {
                         "date": "2026-09-28",
-                        "net_flow_usd": 0.0,
-                        "close_price": 155.65
+                        "net_flow_usd": 442745883.47,
+                        "close_price": 84.36
                     },
                     {
                         "date": "2026-09-29",
-                        "net_flow_usd": -0.0,
-                        "close_price": 155.1
+                        "net_flow_usd": -475775592.22,
+                        "close_price": 83.72
                     },
                     {
                         "date": "2026-09-30",
-                        "net_flow_usd": 0.0,
-                        "close_price": 155.6
+                        "net_flow_usd": 259521535.76,
+                        "close_price": 84.22
+                    },
+                    {
+                        "date": "2026-10-02",
+                        "net_flow_usd": -1180870613.14,
+                        "close_price": 82.08
                     }
                 ],
                 "医药": [
