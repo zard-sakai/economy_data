@@ -1,38 +1,46 @@
-name: Global Fund Flow Fetcher (7D)
+name: 采集资本流动数据
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 8 * * *'
+    # 美股收盘后（UTC 22:10 ≈ 美东 17:10 冬令时 / 18:10 夏令时）
+    - cron: "10 22 * * 1-5"
+  workflow_dispatch:
 
 jobs:
-  fetch-data:
+  fetch:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          python-version: "3.12"
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
           pip install pandas requests akshare yfinance
 
-      - name: Run Fund Flow Script
-        run: python fetch_flows.py
-
-      - name: Commit and push changes
+      - name: 采集数据
         run: |
-          git config --local user.name "github-actions[bot]"
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git add fund_flow_data.json
-          git commit -m "更新最近7天三层看板数据" || echo "数据未变动"
+          python backend/fetch_fund_flow.py --out frontend/public/fund_flow_data.json
+
+      - name: 校验产物非空
+        run: |
+          python - <<'PY'
+          import json, sys
+          d = json.load(open("frontend/public/fund_flow_data.json"))
+          b1 = d.get("board_1_macro_assets_7d", {}).get("data", {})
+          good = [k for k, v in b1.items() if v]
+          print(f"board1 有效资产: {good}")
+          if not good:
+              sys.exit("❌ 所有资产均无数据，终止")
+          PY
+
+      - name: 提交产物
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/public/fund_flow_data.json
+          git diff --quiet --cached || git commit -m "chore: 更新资本流动数据 $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
