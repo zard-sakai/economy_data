@@ -1,13 +1,43 @@
 {
-    "update_time_utc": "2026-10-03 09:59:53",
+    "update_time_utc": "2026-10-03 10:04:12",
     "board_1_macro_assets_7d": {
         "status": "success",
         "data": {
             "A股": [
                 {
-                    "date": "2026-10-03",
-                    "net_flow_cny_100m": -0.0,
-                    "source": "10jqka_Realtime"
+                    "date": "2026-09-24",
+                    "net_flow_usd": -757224.74,
+                    "close_price": 33.19
+                },
+                {
+                    "date": "2026-09-25",
+                    "net_flow_usd": -291902.78,
+                    "close_price": 33.09
+                },
+                {
+                    "date": "2026-09-28",
+                    "net_flow_usd": 4624085.99,
+                    "close_price": 32.51
+                },
+                {
+                    "date": "2026-09-29",
+                    "net_flow_usd": 3604539.01,
+                    "close_price": 32.66
+                },
+                {
+                    "date": "2026-09-30",
+                    "net_flow_usd": -1367939.92,
+                    "close_price": 32.67
+                },
+                {
+                    "date": "2026-10-01",
+                    "net_flow_usd": 10618851.66,
+                    "close_price": 32.75
+                },
+                {
+                    "date": "2026-10-02",
+                    "net_flow_usd": -3242001.88,
+                    "close_price": 32.51
                 }
             ],
             "港股": [
@@ -276,9 +306,39 @@
             ],
             "CN": [
                 {
-                    "date": "2026-10-03",
-                    "net_flow_cny_100m": -0.0,
-                    "source": "10jqka_Realtime"
+                    "date": "2026-09-24",
+                    "net_flow_usd": -757224.74,
+                    "close_price": 33.19
+                },
+                {
+                    "date": "2026-09-25",
+                    "net_flow_usd": -291902.78,
+                    "close_price": 33.09
+                },
+                {
+                    "date": "2026-09-28",
+                    "net_flow_usd": 4624085.99,
+                    "close_price": 32.51
+                },
+                {
+                    "date": "2026-09-29",
+                    "net_flow_usd": 3604539.01,
+                    "close_price": 32.66
+                },
+                {
+                    "date": "2026-09-30",
+                    "net_flow_usd": -1367939.92,
+                    "close_price": 32.67
+                },
+                {
+                    "date": "2026-10-01",
+                    "net_flow_usd": 10618851.66,
+                    "close_price": 32.75
+                },
+                {
+                    "date": "2026-10-02",
+                    "net_flow_usd": -3242001.88,
+                    "close_price": 32.51
                 }
             ],
             "HK": [
