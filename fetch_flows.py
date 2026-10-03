@@ -110,6 +110,24 @@ FX_TO_USD = {
     "USD": 1.00,
 }
 
+# ------------------------------------------------------------------
+# 【修复 · 量纲统一】数量级换算表
+# ------------------------------------------------------------------
+# 背景：同花顺 / 南向资金接口返回的原始值单位是「亿元」，而脚本原先把它
+#       当作「元」直接除汇率，导致 value_usd / net_usd 的实际单位是「亿美元」，
+#       与美股 A/D 代理的「美元」口径相差 1e8 倍 —— 跨资产无法同轴比较。
+#
+# 方案：native_unit 支持 "<币种>_<数量级>" 语法（如 CNY_100M 表示「亿元人民币」），
+#       换算时先乘数量级还原到基准货币单位，再除汇率。
+#       目标：所有对外输出的 value_usd / net_usd 统一为【美元】。
+UNIT_SCALE = {
+    "BASE": 1.0,      # 基准货币单位（元 / 美元 / 港元）
+    "100M": 1e8,      # 「亿」= 1e8
+    "1K": 1e3,        # 「千」
+    "1M": 1e6,        # 「百万」
+    "1B": 1e9,        # 「十亿」
+}
+
 RETRY = 4                 # 重试次数（含首次）
 RETRY_SLEEP = 2.0         # 指数退避基数（秒）
 REQUEST_INTERVAL = 1.2    # 相邻外网请求最小间隔（秒），降低被限流概率
@@ -164,13 +182,37 @@ def _is_connection_killed(exc: Exception) -> bool:
 
 
 def fx(native_unit: str) -> float:
-    """返回 native -> USD 的除数。"""
-    return FX_TO_USD.get(native_unit.upper(), 1.0)
+    """返回 native -> USD 的除数（仅汇率部分，不含数量级）。"""
+    return FX_TO_USD.get(_split_unit(native_unit)[0], 1.0)
+
+
+def _split_unit(native_unit: str) -> tuple:
+    """
+    拆分 "<币种>[_<数量级>]" → (币种, 数量级系数)。
+    兼容历史调用：未带数量级后缀时按基准单位处理。
+
+        "CNY"        -> ("CNY", 1.0)
+        "CNY_100M"   -> ("CNY", 1e8)     # 亿元人民币
+        "USD"        -> ("USD", 1.0)
+    """
+    raw = (native_unit or "USD").upper()
+    if "_" in raw:
+        cur, scale = raw.split("_", 1)
+        return cur, UNIT_SCALE.get(scale, 1.0)
+    return raw, UNIT_SCALE["BASE"]
 
 
 def to_usd(value: float, native_unit: str) -> float:
-    """native 单位数值 -> USD。"""
-    return value / fx(native_unit)
+    """
+    native 单位数值 -> USD（统一为【美元】）。
+
+    换算 = value × 数量级系数 ÷ 汇率
+      to_usd(14.97,  "CNY_100M") -> 14.97亿 CNY ≈ 2.1085e8 USD
+      to_usd(40.74,  "CNY_100M") -> 40.74亿 CNY ≈ 5.7380e8 USD
+      to_usd(1.23e7, "USD")      -> 1.23e7 USD
+    """
+    _, scale = _split_unit(native_unit)
+    return value * scale / fx(native_unit)
 
 
 def rec(date: str, value_native: float, native_unit: str,
@@ -396,7 +438,9 @@ def fetch_cn_sectors_ths(windows=None):
                     "inflow_100m": round(float(inflow), 4) if not pd.isna(inflow) else None,
                     "outflow_100m": round(float(outflow), 4) if not pd.isna(outflow) else None,
                     "net_100m": round(float(net), 4),
-                    "net_usd": round(to_usd(float(net), "CNY"), 4),
+                    # 【修复】net 单位是「亿元」，须走 CNY_100M 数量级，
+                    #        否则结果单位会是「亿美元」而非「美元」，与 value_usd 相差 1e8 倍
+                    "net_usd": round(to_usd(float(net), "CNY_100M"), 2),
                     "pct_change": round(float(pct), 2) if (pct is not None and not pd.isna(pct)) else None,
                     "company_count": int(count) if not pd.isna(count) else None,
                 })
@@ -445,7 +489,8 @@ def fetch_cn_main_flow(days: int = 7):
                 out.append(rec(
                     date=str(r["日期"]),
                     value_native=raw / 1e8,
-                    native_unit="CNY",
+                    # 【修复】raw 原单位为元，此处已 /1e8 转为「亿元」 → CNY_100M
+                    native_unit="CNY_100M",
                     metric_type="A股主力净流入（东财口径，单位已转亿）",
                     is_proxy=False,
                     value_cny_100m=round(raw / 1e8, 2),
@@ -489,7 +534,8 @@ def fetch_hk_southbound_total(days: int = 7):
                 out.append(rec(
                     date=str(r["日期"]),
                     value_native=float(net),
-                    native_unit="CNY",
+                    # 【修复】「当日成交净买额」单位是亿元 → CNY_100M
+                    native_unit="CNY_100M",
                     metric_type="南向资金净买入（合计，亿元）",
                     is_proxy=False,
                     channel="南向资金",
@@ -544,9 +590,29 @@ def fetch_stablecoin_cap_change(days: int = 7):
 # ----------------------------------------------------------------------
 # Intensity：窗口内相对强度（辅助字段，保留但不再冒充资金流）
 # ----------------------------------------------------------------------
+# ------------------------------------------------------------------
+# 【修复 · 强度字段兼容】金额字段候选
+# ------------------------------------------------------------------
+# 背景：时序记录用 value_usd，而 A股行业截面记录用 net_usd。
+#       原实现只认 value_usd，导致 A股 270 条记录取不到值 →
+#       max_abs 恒为 0 → intensity_score 恒为 0.0，强度完全失效。
+# 修复：统一走 _read_metric()，按优先级读取存在的数值字段。
+METRIC_VALUE_FIELDS = ("value_usd", "net_usd", "net_100m")
+
+
+def _read_metric(item: dict) -> float:
+    """从记录中读取金额数值，兼容不同数据源的字段命名。"""
+    for key in METRIC_VALUE_FIELDS:
+        if key in item:
+            val = item.get(key)
+            if isinstance(val, (int, float)):
+                return float(val)
+    return 0.0
+
+
 def attach_intensity(node):
     """
-    真递归：对任意嵌套字典中的 list 节点，按其 value_usd 绝对值最大值
+    真递归：对任意嵌套字典中的 list 节点，按其金额绝对值最大值
     归一化出 intensity_score（-100 ~ 100）。
     注意：分母为该窗口内最大值，故为「相对强度」，跨组不可比。
     """
@@ -556,11 +622,11 @@ def attach_intensity(node):
         return node
 
     if isinstance(node, list):
-        vals = [abs(f.get("value_usd", 0.0)) for f in node if isinstance(f, dict)]
+        vals = [abs(_read_metric(f)) for f in node if isinstance(f, dict)]
         max_abs = max(vals) if vals else 0.0
         for f in node:
             if isinstance(f, dict):
-                raw = f.get("value_usd", 0.0)
+                raw = _read_metric(f)
                 f["intensity_score"] = (
                     round(raw / max_abs * 100, 1) if max_abs else 0.0
                 )
@@ -770,8 +836,12 @@ def main() -> None:
         "fx_basis": {"USD": 1.0, "CNY": FX_TO_USD["CNY"], "HKD": FX_TO_USD["HKD"]},
         "disclaimer": (
             "value_usd 为按固定汇率折算后的美元金额；"
+            "【单位统一】所有对外输出的 value_usd / net_usd 单位一律为【美元】"
+            "（原始值为「亿元」的接口已通过 CNY_100M 数量级换算还原），"
+            "跨资产可直接同轴比较。"
             "标记为 is_proxy=true 的条目为量价动能代理（A/D 动能），"
             "非真实资金净流入，前端必须显著区分展示。"
+            "intensity_score 为各 list 组内相对强度（分母=组内最大值），跨组不可比。"
             "A股行业资金流来自同花顺「即时」口径 —— 其含义为"
             "「最近一个交易日的日度数据」，非此刻实时；"
             "该接口本身不含日期字段，data_date 由 resolve_trade_date() 外部锚定。"
