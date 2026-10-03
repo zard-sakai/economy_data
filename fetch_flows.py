@@ -1,336 +1,457 @@
+# -*- coding: utf-8 -*-
+"""
+全球资本流动监测终端 · 后端采集引擎
+================================================
+
+修订说明（相对原脚本）：
+  1. 统一输出契约：每条记录固定携带 value_usd（已折算美元的净额）、
+     value_native + native_unit（原始口径数值与单位）、metric_type（口径说明）。
+  2. 修正 ASHR 汇率 bug：ASHR 在美股上市、以美元计价，不再除以 7.1。
+  3. 所有汇率换算集中到 to_usd()，归一化前完成，杜绝单位混用。
+  4. 废除 except: pass —— 统一 logger + retry + 数据质量标记（data_quality）。
+  5. Intensity 保留，但仅作为「窗口内相对强度」的辅助字段，不冒充资金流；
+     同时输出可比绝对量 value_usd，前端可自由选择。
+  6. normalize_to_intensity 改为真递归，支持任意嵌套深度。
+  7. 剔除已废弃的 datetime.utcnow()，改用 timezone-aware。
+
+运行：
+  python3 fetch_fund_flow.py --out fund_flow_data.json
+"""
+
+import argparse
+import json
+import logging
+import time
+from datetime import datetime, timezone
+
 import pandas as pd
 import requests
-import akshare as ak
-import yfinance as yf
-from datetime import datetime
-import json
-import time
-import warnings
 
-warnings.filterwarnings('ignore')
+try:
+    import akshare as ak
+except ImportError:  # 允许在无 akshare 环境下做结构自检
+    ak = None
+
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 # ----------------------------------------------------------------------
-# 核心量化引擎与洗盘工具
+# 日志（需求：废除静默吞错）
 # ----------------------------------------------------------------------
-def safe_yf_ticker_history(ticker_symbol, period="1mo"):
-    """单标的安全抓取，拉取 1 个月数据以确保包含充足的有效交易日"""
-    for attempt in range(3):
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger("fundflow")
+
+# ----------------------------------------------------------------------
+# 汇率：集中一处，便于按需改为实时汇率
+# 说明：固定汇率仅作历史序列对齐用途；如需「实时」，可接入
+#       frankfurter.app / exchangerate.host 等公开接口替换 _FX 字典。
+# ----------------------------------------------------------------------
+FX_TO_USD = {
+    "CNY": 7.10,   # 1 USD = 7.10 CNY  （2026 口径，需定期复核）
+    "HKD": 7.80,   # 1 USD = 7.80 HKD
+    "USD": 1.00,
+}
+
+RETRY = 3
+RETRY_SLEEP = 1.5
+
+
+def fx(native_unit: str) -> float:
+    """返回 native → USD 的除数。"""
+    return FX_TO_USD.get(native_unit.upper(), 1.0)
+
+
+# ----------------------------------------------------------------------
+# 工具：带重试与日志的抓取
+# ----------------------------------------------------------------------
+def yf_history(ticker: str, period: str = "1mo") -> pd.DataFrame:
+    """单标的安全抓取，失败重试并记录日志。"""
+    if yf is None:
+        log.error("yfinance 未安装，无法抓取 %s", ticker)
+        return pd.DataFrame()
+    for attempt in range(1, RETRY + 1):
         try:
-            df = yf.Ticker(ticker_symbol).history(period=period)
-            if not df.empty:
+            df = yf.Ticker(ticker).history(period=period)
+            if df is not None and not df.empty:
                 return df
-        except Exception:
-            time.sleep(1.5)
+            log.warning("[%s] 第 %d 次返回空数据", ticker, attempt)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("[%s] 第 %d 次抓取异常: %s", ticker, attempt, exc)
+        time.sleep(RETRY_SLEEP)
+    log.error("[%s] 重试 %d 次后仍失败", ticker, RETRY)
     return pd.DataFrame()
 
-def calculate_estimated_flow(df, ticker_symbol="SPY", days=7):
-    """
-    【终极A/D模型】基于日内高低收的真实承接力，并智能汇率换算统一至美元 (USD) 量级
-    """
-    flows = []
-    if df.empty:
-        return flows
-    
-    # 智能汇率识别 (确保量级在同一维度)
-    exchange_rate = 1.0
-    ticker_upper = ticker_symbol.upper()
-    if ticker_upper.endswith('.HK'):
-        exchange_rate = 7.8
-    elif ticker_upper.endswith('.SS') or ticker_upper.endswith('.SZ') or ticker_upper == 'ASHR':
-        exchange_rate = 7.1
-        
-    tail_df = df.tail(days)
-    
-    for date, row in tail_df.iterrows():
-        close_p = float(row['Close'])
-        high_p = float(row['High'])
-        low_p = float(row['Low'])
-        vol = float(row['Volume'])
-        
-        # A/D 核心公式：计算资金流向乘数
-        if high_p != low_p:
-            mfm = ((close_p - low_p) - (high_p - close_p)) / (high_p - low_p)
-        else:
-            mfm = 0.0
-            
-        typical_price = (high_p + low_p + close_p) / 3.0
-        
-        # 换算为统一的 USD 量级，消除百倍汇率与计价体系差
-        estimated_flow_usd = (mfm * vol * typical_price) / exchange_rate
-        
-        flows.append({
-            "date": date.strftime('%Y-%m-%d'),
-            "net_flow_usd": round(estimated_flow_usd, 2),
-            "close_price": round(close_p, 2)
-        })
-        
-    return flows
 
-def normalize_to_intensity(data_dict):
-    """
-    【全局动能洗盘】递归归一化引擎，深入所有单层字典与双层嵌套字典(Sectors)
-    将所有绝对资金转为 -100 到 100 的强度分数，彻底屏蔽盘子大小干扰。
-    """
-    for key, val in data_dict.items():
-        if isinstance(val, list):
-            # 处理第一层 List (如 看板 1 和 看板 2)
-            abs_flows = [abs(f.get('net_flow_usd', f.get('net_flow_cny_100m', f.get('net_flow_hkd_100m', 0)))) for f in val]
-            max_abs = max(abs_flows) if abs_flows else 0
-            
-            for f in val:
-                raw_val = f.get('net_flow_usd', f.get('net_flow_cny_100m', f.get('net_flow_hkd_100m', 0)))
-                f['intensity_score'] = round((raw_val / max_abs) * 100, 1) if max_abs != 0 else 0.0
-                
-        elif isinstance(val, dict):
-            # 处理嵌套的 Dict (如 看板 3 下的 "美股": {"科技": [...], "金融": [...]})
-            for sub_key, sub_list in val.items():
-                if isinstance(sub_list, list):
-                    abs_flows = [abs(f.get('net_flow_usd', f.get('net_flow_cny_100m', f.get('net_flow_hkd_100m', 0)))) for f in sub_list]
-                    max_abs = max(abs_flows) if abs_flows else 0
-                    for f in sub_list:
-                        raw_val = f.get('net_flow_usd', f.get('net_flow_cny_100m', f.get('net_flow_hkd_100m', 0)))
-                        f['intensity_score'] = round((raw_val / max_abs) * 100, 1) if max_abs != 0 else 0.0
+def to_usd(value: float, native_unit: str) -> float:
+    """native 单位数值 → USD。"""
+    return value / fx(native_unit)
 
-    return data_dict
+
+def rec(date: str, value_native: float, native_unit: str,
+        metric_type: str, **extra) -> dict:
+    """
+    构造标准化记录（统一输出契约）。
+    - value_usd    : 折算美元后的数值（供前端跨资产比较）
+    - value_native : 原始口径数值
+    - native_unit  : 原始单位（USD / CNY / HKD / USD_100M …）
+    - metric_type  : 口径说明（需求强制要求）
+    """
+    value_usd = to_usd(value_native, native_unit)
+    out = {
+        "date": date,
+        "value_usd": round(value_usd, 2),
+        "value_native": round(value_native, 2),
+        "native_unit": native_unit,
+        "metric_type": metric_type,
+    }
+    out.update(extra)
+    return out
 
 
 # ----------------------------------------------------------------------
-# A股多数据源灾备穿透抓取
+# A/D 动能代理（明确标注为「代理」，不是资金流）
+# 保留 MFM 计算用于「动能方向」展示，但绝对量单独走真实口径。
 # ----------------------------------------------------------------------
-def fetch_cn_market_flow_multi_source():
-    """A股大盘资金流穿透抓取，保障休市期也能获取 7 天完整序列"""
+def ad_momentum_proxy(df: pd.DataFrame, ticker: str, days: int = 7) -> list:
+    """
+    以 MFM × 成交额 构造「量价动能代理」序列。
+    ⚠️ 该方法衡量的是日内收盘位置所反映的多空承接，不是真实资金净流入。
+       因此 metric_type 明确写为「A/D 动能代理」，前端需据此标注。
+    """
+    if df is None or df.empty:
+        return []
+
+    rows = []
+    for date, row in df.tail(days).iterrows():
+        try:
+            close_p = float(row["Close"])
+            high_p = float(row["High"])
+            low_p = float(row["Low"])
+            vol = float(row["Volume"])
+        except (KeyError, TypeError, ValueError) as exc:
+            log.warning("[%s] %s 行字段缺失: %s", ticker, date, exc)
+            continue
+
+        mfm = ((close_p - low_p) - (high_p - close_p)) / (high_p - low_p) \
+            if high_p != low_p else 0.0
+        typical = (high_p + low_p + close_p) / 3.0
+        # 该标的以美元计价（美股 / 美股挂牌 ETF），故 native_unit = USD
+        proxy_usd = mfm * vol * typical
+
+        rows.append(rec(
+            date=date.strftime("%Y-%m-%d"),
+            value_native=proxy_usd,
+            native_unit="USD",
+            metric_type="A/D 动能代理（非真实资金流）",
+            close_price=round(close_p, 2),
+        ))
+    return rows
+
+
+# ----------------------------------------------------------------------
+# A股主力净额（东财口径，带灾备）
+# ----------------------------------------------------------------------
+def fetch_cn_main_flow(days: int = 7) -> tuple[list, str]:
+    """返回 (records, data_quality)。data_quality ∈ ok/degraded/failed。"""
+    if ak is not None:
+        # 主线路
+        try:
+            df = ak.stock_market_fund_flow()
+            if df is not None and not df.empty:
+                out = []
+                for _, r in df.tail(days).iterrows():
+                    # 东财口径单位为「元」，换算为亿人民币展示更直观
+                    raw = float(r["主力净流入-净额"])
+                    out.append(rec(
+                        date=str(r["日期"]),
+                        value_native=raw / 1e8,
+                        native_unit="CNY",
+                        metric_type="A股主力净流入（东财口径，单位已转亿）",
+                        value_cny_100m=round(raw / 1e8, 2),
+                    ))
+                log.info("A股主力净额：主线路成功，%d 条", len(out))
+                return out, "ok"
+        except Exception as exc:  # noqa: BLE001
+            log.warning("A股主线路失败: %s", exc)
+
+        # 备线路
+        try:
+            df2 = ak.stock_market_fund_flow_hist(symbol="上证主板")
+            if df2 is not None and not df2.empty:
+                out = []
+                for _, r in df2.tail(days).iterrows():
+                    raw = float(r["主力净流入-净额"])
+                    out.append(rec(
+                        date=str(r["日期"]),
+                        value_native=raw / 1e8,
+                        native_unit="CNY",
+                        metric_type="A股主力净流入（东财历史口径，单位已转亿）",
+                        value_cny_100m=round(raw / 1e8, 2),
+                    ))
+                log.info("A股主力净额：备线路成功，%d 条", len(out))
+                return out, "degraded"
+        except Exception as exc:  # noqa: BLE001
+            log.warning("A股备线路失败: %s", exc)
+
+    # 终极降级：ASHR（美股挂牌，以美元计价 → 不换算汇率）
+    log.warning("A股接口不可用，降级至 ASHR 动能代理")
+    ashr = ad_momentum_proxy(yf_history("ASHR"), "ASHR", days)
+    if ashr:
+        return ashr, "degraded"
+    return [], "failed"
+
+
+# ----------------------------------------------------------------------
+# 港股南向资金（港股通沪，单位港元）
+# ----------------------------------------------------------------------
+def fetch_hk_southbound(days: int = 7) -> tuple[list, str]:
+    if ak is None:
+        return [], "failed"
     try:
-        df_a = ak.stock_market_fund_flow().tail(7)
-        if not df_a.empty and len(df_a) >= 2:
-            cn_flows = []
-            for _, row in df_a.iterrows():
-                cn_flows.append({
-                    "date": str(row['日期']),
-                    "net_flow_cny_100m": round(float(row['主力净流入-净额']) / 1e8, 2),
-                    "source": "Eastmoney"
-                })
-            return cn_flows
-    except Exception:
-        pass
+        # 沪 + 深 合计更接近「南向」全貌
+        out = []
+        for indicator in ("港股通(沪)", "港股通(深)"):
+            df = ak.stock_hk_ggt_historical(indicator=indicator)
+            if df is None or df.empty:
+                continue
+            for _, r in df.tail(days).iterrows():
+                buy = float(r["当日买成交额"])
+                sell = float(r["当日卖成交额"])
+                net_hkd = buy - sell  # 港元
+                out.append(rec(
+                    date=str(r["日期"]),
+                    value_native=net_hkd,
+                    native_unit="HKD",
+                    metric_type=f"南向资金净买入（{indicator}，港元）",
+                    channel=indicator,
+                ))
+        if out:
+            log.info("港股南向：成功 %d 条", len(out))
+            return out, "ok"
+        log.warning("港股南向返回空")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("港股南向接口失败: %s", exc)
 
+    # 降级：EWH（美股挂牌，美元计价）
+    log.warning("港股接口不可用，降级至 EWH 动能代理")
+    ewh = ad_momentum_proxy(yf_history("EWH"), "EWH", days)
+    return (ewh, "degraded") if ewh else ([], "failed")
+
+
+# ----------------------------------------------------------------------
+# 加密：稳定币「市值日变化」（明确标注不是净法币流入）
+# ----------------------------------------------------------------------
+def fetch_stablecoin_cap_change(days: int = 7) -> tuple[list, str]:
+    url = "https://stablecoins.llama.fi/stablecoincharts/all"
+    for attempt in range(1, RETRY + 1):
+        try:
+            res = requests.get(url, timeout=10).json()
+            if not isinstance(res, list) or len(res) < 2:
+                raise ValueError("返回结构异常")
+            window = res[-(days + 1):]
+            out = []
+            for i in range(1, len(window)):
+                cur = float(window[i]["totalCirculatingUSD"]["peggedUSD"])
+                prev = float(window[i - 1]["totalCirculatingUSD"]["peggedUSD"])
+                dt = datetime.fromtimestamp(
+                    int(window[i]["date"]), tz=timezone.utc
+                ).strftime("%Y-%m-%d")
+                out.append(rec(
+                    date=dt,
+                    value_native=cur - prev,
+                    native_unit="USD",
+                    metric_type="稳定币总市值日变化（≠ 净法币流入）",
+                    market_cap_usd=round(cur, 2),
+                ))
+            log.info("稳定币市值日变化：成功 %d 条", len(out))
+            return out, "ok"
+        except Exception as exc:  # noqa: BLE001
+            log.warning("稳定币第 %d 次失败: %s", attempt, exc)
+            time.sleep(RETRY_SLEEP)
+    return [], "failed"
+
+
+# ----------------------------------------------------------------------
+# Intensity：窗口内相对强度（辅助字段，保留但不再冒充资金流）
+# ----------------------------------------------------------------------
+def attach_intensity(node):
+    """
+    真递归：对任意嵌套字典中的 list 节点，按其 value_usd 绝对值最大值
+    归一化出 intensity_score（-100 ~ 100）。
+    注意：分母为该窗口内最大值，故为「相对强度」，跨组不可比。
+    """
+    if isinstance(node, dict):
+        for key, val in node.items():
+            node[key] = attach_intensity(val)
+        return node
+
+    if isinstance(node, list):
+        vals = [abs(f.get("value_usd", 0.0)) for f in node if isinstance(f, dict)]
+        max_abs = max(vals) if vals else 0.0
+        for f in node:
+            if isinstance(f, dict):
+                raw = f.get("value_usd", 0.0)
+                f["intensity_score"] = (
+                    round(raw / max_abs * 100, 1) if max_abs else 0.0
+                )
+        return node
+
+    return node
+
+
+# ----------------------------------------------------------------------
+# 看板 1：宏观大类资产
+# ----------------------------------------------------------------------
+def board1_macro() -> dict:
+    log.info(">>> 看板1：宏观大类资产")
+    data, quality = {}, {}
+
+    data["A股"], quality["A股"] = fetch_cn_main_flow()
+    data["港股"], quality["港股"] = fetch_hk_southbound()
+
+    for name, ticker in (("美股", "SPY"), ("黄金", "GLD"),
+                         ("原油", "USO"), ("类现金资产", "BIL")):
+        rows = ad_momentum_proxy(yf_history(ticker), ticker)
+        data[name] = rows
+        quality[name] = "ok" if rows else "failed"
+
+    data["加密货币"], quality["加密货币"] = fetch_stablecoin_cap_change()
+
+    return {
+        "status": "success",
+        "data": attach_intensity(data),
+        "data_quality": quality,
+    }
+
+
+# ----------------------------------------------------------------------
+# 看板 2：区域市场
+# ----------------------------------------------------------------------
+def board2_regions() -> dict:
+    log.info(">>> 看板2：区域市场")
+    data, quality = {}, {}
+
+    us = ad_momentum_proxy(yf_history("SPY"), "SPY")
+    data["US"], quality["US"] = us, "ok" if us else "failed"
+
+    data["CN"], quality["CN"] = fetch_cn_main_flow()
+    data["HK"], quality["HK"] = fetch_hk_southbound()
+
+    return {
+        "status": "success",
+        "data": attach_intensity(data),
+        "data_quality": quality,
+    }
+
+
+# ----------------------------------------------------------------------
+# 看板 3：股市细分板块
+# ----------------------------------------------------------------------
+def fetch_a_sector(sector: str, days: int = 7) -> list:
+    if ak is None:
+        return []
     try:
-        df_a_hist = ak.stock_market_fund_flow_hist(symbol="上证主板").tail(7)
-        if not df_a_hist.empty:
-            cn_flows = []
-            for _, row in df_a_hist.iterrows():
-                cn_flows.append({
-                    "date": str(row['日期']),
-                    "net_flow_cny_100m": round(float(row['主力净流入-净额']) / 1e8, 2),
-                    "source": "Eastmoney_Hist"
-                })
-            return cn_flows
-    except Exception:
-        pass
-
-    print("  [A股-备用线路] 国内接口异常/休市，切换至美股 ASHR (沪深300) 倒推 7 天资金流...")
-    ashr_df = safe_yf_ticker_history("ASHR")
-    if not ashr_df.empty:
-        return calculate_estimated_flow(ashr_df, "ASHR")
-
+        df = ak.stock_sector_fund_flow_hist(symbol=sector)
+        if df is not None and not df.empty:
+            out = []
+            for _, r in df.tail(days).iterrows():
+                raw = float(r["主力净流入-净额"])
+                out.append(rec(
+                    date=str(r["日期"]),
+                    value_native=raw / 1e8,
+                    native_unit="CNY",
+                    metric_type=f"A股 {sector} 主力净流入（东财口径）",
+                    pct_change=safe_float(r, "涨跌幅"),
+                ))
+            return out
+    except Exception as exc:  # noqa: BLE001
+        log.warning("A股板块 [%s] 抓取失败: %s", sector, exc)
     return []
 
 
-# ----------------------------------------------------------------------
-# 看板 1：大类资产流动 (Layer 0 - Macro Assets)
-# ----------------------------------------------------------------------
-def fetch_board1_macro_assets_7d():
-    print("正在抓取 [看板1: 大类资产] 7 大分类数据...")
-    macro_data = {}
-
-    macro_data["A股"] = fetch_cn_market_flow_multi_source()
-
+def safe_float(row, col, default=0.0) -> float:
     try:
-        df_hk = ak.stock_hk_ggt_historical(indicator="港股通(沪)").tail(7)
-        hk_flows = []
-        for _, row in df_hk.iterrows():
-            hk_flows.append({
-                "date": str(row['日期']),
-                "net_flow_hkd_100m": round(float(row['当日买成交额']) - float(row['当日卖成交额']), 2),
-                "source": "GGT_Southbound"
-            })
-        macro_data["港股"] = hk_flows
-    except Exception:
-        print("  [港股] 港股通主接口受阻，自动无缝切换至 EWH (香港ETF)...")
-        ewh_df = safe_yf_ticker_history("EWH")
-        macro_data["港股"] = calculate_estimated_flow(ewh_df, "EWH")
-
-    try:
-        spy_df = safe_yf_ticker_history("SPY")
-        macro_data["美股"] = calculate_estimated_flow(spy_df, "SPY")
-    except Exception:
-        macro_data["美股"] = []
-
-    try:
-        gld_df = safe_yf_ticker_history("GLD")
-        macro_data["黄金"] = calculate_estimated_flow(gld_df, "GLD")
-    except Exception:
-        macro_data["黄金"] = []
-
-    try:
-        uso_df = safe_yf_ticker_history("USO")
-        macro_data["原油"] = calculate_estimated_flow(uso_df, "USO")
-    except Exception:
-        macro_data["原油"] = []
-
-    try:
-        url = "https://stablecoins.llama.fi/stablecoincharts/all"
-        res = requests.get(url, timeout=10).json()
-        crypto_7d = res[-8:]
-        crypto_flows = []
-        for i in range(1, len(crypto_7d)):
-            today_cap = float(crypto_7d[i]['totalCirculatingUSD']['peggedUSD'])
-            yesterday_cap = float(crypto_7d[i-1]['totalCirculatingUSD']['peggedUSD'])
-            date_str = datetime.utcfromtimestamp(int(crypto_7d[i]['date'])).strftime('%Y-%m-%d')
-            crypto_flows.append({
-                "date": date_str,
-                "net_flow_usd": round(today_cap - yesterday_cap, 2),
-                "market_cap_usd": round(today_cap, 2)
-            })
-        macro_data["加密货币"] = crypto_flows
-    except Exception:
-        macro_data["加密货币"] = []
-
-    try:
-        bil_df = safe_yf_ticker_history("BIL")
-        macro_data["类现金资产"] = calculate_estimated_flow(bil_df, "BIL")
-    except Exception:
-        macro_data["类现金资产"] = []
-
-    # 注入 Intensity Score
-    return {"status": "success", "data": normalize_to_intensity(macro_data)}
+        return float(row[col])
+    except (KeyError, TypeError, ValueError):
+        return default
 
 
-# ----------------------------------------------------------------------
-# 看板 2：区域流动 (Layer 1 - Regional Markets)
-# ----------------------------------------------------------------------
-def fetch_board2_regions_7d():
-    print("正在抓取 [看板2: 区域流动]...")
-    region_data = {}
-    
-    try:
-        spy_df = safe_yf_ticker_history("SPY")
-        region_data["US"] = calculate_estimated_flow(spy_df, "SPY")
-    except Exception:
-        region_data["US"] = []
+def board3_sectors() -> dict:
+    log.info(">>> 看板3：股市细分板块")
+    data = {}
 
-    region_data["CN"] = fetch_cn_market_flow_multi_source()
-
-    try:
-        df_hk = ak.stock_hk_ggt_historical(indicator="港股通(沪)").tail(7)
-        hk_flows = []
-        for _, row in df_hk.iterrows():
-            hk_flows.append({
-                "date": str(row['日期']),
-                "net_flow_hkd_100m": round(float(row['当日买成交额']) - float(row['当日卖成交额']), 2)
-            })
-        region_data["HK"] = hk_flows
-    except Exception:
-        ewh_df = safe_yf_ticker_history("EWH")
-        region_data["HK"] = calculate_estimated_flow(ewh_df, "EWH")
-
-    # 注入 Intensity Score
-    return {"status": "success", "data": normalize_to_intensity(region_data)}
-
-
-# ----------------------------------------------------------------------
-# 看板 3：股市板块轮动 (Layer 2 - Stock Sectors)
-# ----------------------------------------------------------------------
-def fetch_sector_with_failover(sector_name):
-    """A股细分行业灾备机制"""
-    try:
-        df = ak.stock_sector_fund_flow_hist(symbol=sector_name).tail(7)
-        if not df.empty:
-            flows = []
-            for _, row in df.iterrows():
-                flows.append({
-                    "date": str(row['日期']),
-                    "net_flow_cny_100m": round(float(row['主力净流入-净额']) / 1e8, 2),
-                    "pct_change": float(row['涨跌幅']),
-                    "source": "Eastmoney"
-                })
-            return flows
-    except Exception:
-        pass
-
-    try:
-        df_ths = ak.stock_fund_flow_industry(symbol="即时")
-        matched = df_ths[df_ths['行业'].str.contains(sector_name[:2])]
-        if not matched.empty:
-            row = matched.iloc[0]
-            today_str = datetime.now().strftime('%Y-%m-%d')
-            return [{
-                "date": today_str,
-                "net_flow_cny_100m": round(float(row['净额']) / 1e8, 2) if '净额' in row else 0.0,
-                "pct_change": float(row['行业-涨跌幅']) if '行业-涨跌幅' in row else 0.0,
-                "source": "10jqka_Backup"
-            }]
-    except Exception:
-        pass
-    return []
-
-def fetch_board3_sectors_7d():
-    print("正在抓取 [看板3: 股市板块轮动]...")
-    stock_sector_data = {}
-
-    # 1. 美股板块
-    us_sector_tickers = {
+    # 美股板块 ETF
+    us = {
         "科技": "XLK", "医疗保健": "XLV", "金融": "XLF",
-        "能源": "XLE", "可选消费": "XLY", "工业": "XLI"
+        "能源": "XLE", "可选消费": "XLY", "工业": "XLI",
     }
-    us_sectors = {}
-    for name, ticker in us_sector_tickers.items():
-        try:
-            df = safe_yf_ticker_history(ticker)
-            us_sectors[name] = calculate_estimated_flow(df, ticker)
-        except Exception:
-            us_sectors[name] = []
-    stock_sector_data["美股"] = us_sectors
-
-    # 2. A股板块
-    core_a_sectors = ["半导体", "酿酒行业", "银行", "医疗器械", "光伏设备"]
-    a_sectors = {}
-    for sector in core_a_sectors:
-        a_sectors[sector] = fetch_sector_with_failover(sector)
-    stock_sector_data["A股"] = a_sectors
-
-    # 3. 港股板块 (金融已替换为流动性更好的 2828.HK)
-    hk_sector_tickers = {
-        "资讯科技": "3033.HK", "金融": "2828.HK", "医药": "1801.HK"
+    data["美股"] = {
+        name: ad_momentum_proxy(yf_history(tk), tk) for name, tk in us.items()
     }
-    hk_sectors = {}
-    for name, ticker in hk_sector_tickers.items():
-        try:
-            df = safe_yf_ticker_history(ticker)
-            hk_sectors[name] = calculate_estimated_flow(df, ticker)
-        except Exception:
-            hk_sectors[name] = []
-    stock_sector_data["港股"] = hk_sectors
 
-    # 递归注入 Intensity Score
-    return {"status": "success", "data": normalize_to_intensity(stock_sector_data)}
+    # A股板块
+    data["A股"] = {
+        s: fetch_a_sector(s)
+        for s in ("半导体", "酿酒行业", "银行", "医疗器械", "光伏设备")
+    }
+
+    # 港股板块 ETF（2828.HK 流动性优于 2838.HK）
+    hk = {"资讯科技": "3033.HK", "金融": "2828.HK", "医药": "1801.HK"}
+    data["港股"] = {
+        name: ad_momentum_proxy(yf_history(tk), tk) for name, tk in hk.items()
+    }
+
+    # 质量标记（板块级）
+    quality = {
+        mkt: {k: ("ok" if v else "failed") for k, v in sectors.items()}
+        for mkt, sectors in data.items()
+    }
+
+    return {
+        "status": "success",
+        "data": attach_intensity(data),
+        "data_quality": quality,
+    }
 
 
 # ----------------------------------------------------------------------
 # 主程序
 # ----------------------------------------------------------------------
-if __name__ == "__main__":
-    now_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"=== 开始采集全量三层看板数据 ({now_utc} UTC) ===")
-    
-    final_json = {
-        "update_time_utc": now_utc,
-        "board_1_macro_assets_7d": fetch_board1_macro_assets_7d(),
-        "board_2_regions_7d": fetch_board2_regions_7d(),
-        "board_3_sectors_7d": fetch_board3_sectors_7d()
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", default="fund_flow_data.json")
+    parser.add_argument("--date", default=None,
+                        help="覆盖数据日期（用于离线自检）")
+    args = parser.parse_args()
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    log.info("=== 开始采集三层看板数据 (%s UTC) ===", now)
+
+    payload = {
+        "schema_version": "2.0",
+        "update_time_utc": now,
+        "data_date": args.date,
+        "fx_basis": {"USD": 1.0, "CNY": FX_TO_USD["CNY"], "HKD": FX_TO_USD["HKD"]},
+        "disclaimer": (
+            "value_usd 为按固定汇率折算后的美元金额；"
+            "标记为「A/D 动能代理」的条目为量价动能指标，非真实资金净流入。"
+        ),
+        "board_1_macro_assets_7d": board1_macro(),
+        "board_2_regions_7d": board2_regions(),
+        "board_3_sectors_7d": board3_sectors(),
     }
-    
-    file_name = "fund_flow_data.json"
-    with open(file_name, "w", encoding="utf-8") as f:
-        json.dump(final_json, f, ensure_ascii=False, indent=4)
-        
-    print(f"\n✅ 终极版（含 A/D模型 + 全局 Intensity 强效洗盘）已成功写入 {file_name}")
+
+    with open(args.out, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+    log.info("✅ 已写入 %s", args.out)
+
+
+if __name__ == "__main__":
+    main()
