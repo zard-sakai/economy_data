@@ -1,0 +1,42 @@
+{
+    "update_time_utc": "2026-10-03 09:08:05",
+    "layer_2_ashare": {
+        "status": "error",
+        "message": "节假日休市或接口异常，无今日数据"
+    },
+    "layer_1_crypto": {
+        "status": "success",
+        "today_market_cap_usd": 311900869415.05,
+        "daily_net_flow_usd": 383931776.0499878
+    },
+    "layer_0_macro": {
+        "status": "success",
+        "data": [
+            {
+                "ticker": "SPY",
+                "close_price": 769.64,
+                "estimated_turnover_usd": 35639258374.32
+            },
+            {
+                "ticker": "QQQ",
+                "close_price": 749.58,
+                "estimated_turnover_usd": 25835849407.04
+            },
+            {
+                "ticker": "TLT",
+                "close_price": 77.48,
+                "estimated_turnover_usd": 4754591398.0
+            },
+            {
+                "ticker": "GLD",
+                "close_price": 380.14,
+                "estimated_turnover_usd": 3480143820.1
+            },
+            {
+                "ticker": "USO",
+                "close_price": 147.37,
+                "estimated_turnover_usd": 1143620636.11
+            }
+        ]
+    }
+}
