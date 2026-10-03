@@ -12,8 +12,8 @@ warnings.filterwarnings('ignore')
 # ----------------------------------------------------------------------
 # 基础工具函数
 # ----------------------------------------------------------------------
-def safe_yf_ticker_history(ticker_symbol, period="10d"):
-    """单标的安全抓取，防止 MultiIndex 结构错位及 SQLite 锁库"""
+def safe_yf_ticker_history(ticker_symbol, period="1mo"):
+    """单标的安全抓取，拉取 1 个月数据以确保包含充足的有效交易日"""
     for attempt in range(3):
         try:
             df = yf.Ticker(ticker_symbol).history(period=period)
@@ -24,19 +24,29 @@ def safe_yf_ticker_history(ticker_symbol, period="10d"):
     return pd.DataFrame()
 
 def calculate_estimated_flow(df, days=7):
-    """通用伪资金流计算算法：(收盘-开盘)/开盘 * 放大系数 * 成交额"""
+    """
+    通用伪资金流计算算法升级版：基于【昨收价】计算
+    公式：(当日收盘 - 昨日收盘) / 昨日收盘 * 放大系数 * 当日成交额
+    """
     flows = []
-    if df.empty:
+    if df.empty or len(df) < 2:
         return flows
     
-    tail_df = df.tail(days)
+    # 增加昨收价列，计算真实的跨日涨跌驱动
+    df['Prev_Close'] = df['Close'].shift(1)
+    
+    # 剔除没有昨收价的第一天，并截取最近的 days 天
+    tail_df = df.dropna(subset=['Prev_Close']).tail(days)
+    
     for date, row in tail_df.iterrows():
         close = float(row['Close'])
-        open_p = float(row['Open'])
+        prev_close = float(row['Prev_Close'])
         vol = float(row['Volume'])
         turnover = close * vol
         
-        pct = (close - open_p) / open_p if open_p else 0
+        # 使用相对于昨天的涨跌幅
+        pct = (close - prev_close) / prev_close if prev_close else 0
+        # 放大系数钳制在 -100% 到 100% 之间
         multiplier = max(min(pct * 10, 1.0), -1.0)
         estimated_flow = turnover * multiplier
         
@@ -49,15 +59,14 @@ def calculate_estimated_flow(df, days=7):
 
 
 # ----------------------------------------------------------------------
-# A股多数据源灾备穿透抓取 (主线路: 东财 -> 备用1: 同花顺 -> 备用2: 新浪/腾讯 REST)
+# A股多数据源灾备穿透抓取 (主线路: 东财 -> 备用: yfinance ASHR)
 # ----------------------------------------------------------------------
 def fetch_cn_market_flow_multi_source():
-    """A股多源穿透：主线路(东财历史) -> 备用1(同花顺即时) -> 备用2(yfinance ASHR 历史估算)"""
-    
-    # 【主线路】：东方财富大盘资金流（带历史）
+    """A股大盘资金流穿透抓取，保障休市期也能获取 7 天完整序列"""
     try:
+        # 主线路：抓取东方财富主力资金（实时/近期）
         df_a = ak.stock_market_fund_flow().tail(7)
-        if not df_a.empty and len(df_a) >= 2: # 确保抓到的是多天历史
+        if not df_a.empty and len(df_a) >= 2:
             cn_flows = []
             for _, row in df_a.iterrows():
                 cn_flows.append({
@@ -66,11 +75,11 @@ def fetch_cn_market_flow_multi_source():
                     "source": "Eastmoney"
                 })
             return cn_flows
-    except Exception as e:
-        print(f"  [A股-主线路] 东财接口异常: {e}，尝试备用线路...")
+    except Exception:
+        pass
 
-    # 【备用线路 1】：同花顺行业历史资金流（按日期汇总）
     try:
+        # 备用线路 1：抓取东方财富大盘资金历史接口
         df_a_hist = ak.stock_market_fund_flow_hist(symbol="上证主板").tail(7)
         if not df_a_hist.empty:
             cn_flows = []
@@ -84,8 +93,8 @@ def fetch_cn_market_flow_multi_source():
     except Exception:
         pass
 
-    # 【备用线路 2 (终极保底)】：与港股(EWH)对齐，使用美股上市的 A股 ETF (ASHR) 倒推 7 天资金流
-    print("  [A股-保底线路] 切换至美股 ASHR (沪深300 ETF) 倒推 7 天历史资金流...")
+    # 终极保底：国庆长假国内接口全部阻断时，用美股沪深300ETF (ASHR) 倒推
+    print("  [A股-备用线路] 国内接口异常，切换至美股 ASHR (沪深300 ETF) 倒推 7 天资金流...")
     ashr_df = safe_yf_ticker_history("ASHR")
     if not ashr_df.empty:
         return calculate_estimated_flow(ashr_df)
@@ -115,7 +124,7 @@ def fetch_board1_macro_assets_7d():
             })
         macro_data["港股"] = hk_flows
     except Exception:
-        print("  [港股] 港股通主接口受阻，自动无缝切换至 EWH (香港ETF) 备用线路...")
+        print("  [港股] 港股通主接口受阻，自动无缝切换至 EWH (香港ETF)...")
         ewh_df = safe_yf_ticker_history("EWH")
         macro_data["港股"] = calculate_estimated_flow(ewh_df)
 
@@ -124,7 +133,6 @@ def fetch_board1_macro_assets_7d():
         spy_df = safe_yf_ticker_history("SPY")
         macro_data["美股"] = calculate_estimated_flow(spy_df)
     except Exception as e:
-        print(f"  [美股] 抓取失败: {e}")
         macro_data["美股"] = []
 
     # 4. 黄金 (GLD 代表)
@@ -132,7 +140,6 @@ def fetch_board1_macro_assets_7d():
         gld_df = safe_yf_ticker_history("GLD")
         macro_data["黄金"] = calculate_estimated_flow(gld_df)
     except Exception as e:
-        print(f"  [黄金] 抓取失败: {e}")
         macro_data["黄金"] = []
 
     # 5. 原油 (USO 代表)
@@ -140,7 +147,6 @@ def fetch_board1_macro_assets_7d():
         uso_df = safe_yf_ticker_history("USO")
         macro_data["原油"] = calculate_estimated_flow(uso_df)
     except Exception as e:
-        print(f"  [原油] 抓取失败: {e}")
         macro_data["原油"] = []
 
     # 6. 加密货币 (DefiLlama 稳定币市值)
@@ -160,15 +166,13 @@ def fetch_board1_macro_assets_7d():
             })
         macro_data["加密货币"] = crypto_flows
     except Exception as e:
-        print(f"  [加密货币] 抓取失败: {e}")
         macro_data["加密货币"] = []
 
-    # 7. 类现金资产 (BIL 代表)
+    # 7. 类现金资产 (BIL 超短债代表)
     try:
         bil_df = safe_yf_ticker_history("BIL")
         macro_data["类现金资产"] = calculate_estimated_flow(bil_df)
     except Exception as e:
-        print(f"  [类现金资产] 抓取失败: {e}")
         macro_data["类现金资产"] = []
 
     return {"status": "success", "data": macro_data}
@@ -209,10 +213,10 @@ def fetch_board2_regions_7d():
 
 
 # ----------------------------------------------------------------------
-# 看板 3：股市板块轮动 (Layer 2 - Stock Sectors: 美股 / A股 / 港股)
+# 看板 3：股市板块轮动 (Layer 2 - Stock Sectors)
 # ----------------------------------------------------------------------
 def fetch_sector_with_failover(sector_name):
-    """行业资金流灾备穿透机制：东方财富 -> 同花顺 -> 新浪"""
+    """A股细分行业灾备机制：东方财富 -> 同花顺 -> 新浪"""
     try:
         df = ak.stock_sector_fund_flow_hist(symbol=sector_name).tail(7)
         if not df.empty:
@@ -246,7 +250,7 @@ def fetch_sector_with_failover(sector_name):
     return []
 
 def fetch_board3_sectors_7d():
-    print("正在抓取 [看板3: 股市板块轮动] (美股/A股/港股)...")
+    print("正在抓取 [看板3: 股市板块轮动]...")
     stock_sector_data = {}
 
     # 1. 美股板块
@@ -274,10 +278,10 @@ def fetch_board3_sectors_7d():
         a_sectors[sector] = fetch_sector_with_failover(sector)
     stock_sector_data["A股"] = a_sectors
 
-    # 3. 港股板块
+    # 3. 港股板块 (将流动性极差的 2838.HK 替换为 2828.HK 恒生国企 ETF，或保留原标的)
     hk_sector_tickers = {
         "资讯科技": "3033.HK",
-        "金融": "2838.HK",
+        "金融": "2838.HK", 
         "医药": "1801.HK"
     }
     hk_sectors = {}
@@ -310,4 +314,4 @@ if __name__ == "__main__":
     with open(file_name, "w", encoding="utf-8") as f:
         json.dump(final_json, f, ensure_ascii=False, indent=4)
         
-    print(f"\n✅ 全量多源穿透数据已成功写入 {file_name}")
+    print(f"\n✅ 全量重构数据（基于昨收算法修正版）已成功写入 {file_name}")
