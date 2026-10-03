@@ -1,9 +1,9 @@
 name: Global Fund Flow Fetcher
 
 on:
-  workflow_dispatch: # 允许在 GitHub Actions 页面手动点击 Run workflow
+  workflow_dispatch:
   schedule:
-    - cron: '0 8 * * *' # 每天 UTC 08:00 (北京时间 16:00) 自动执行
+    - cron: '0 8 * * *'
 
 jobs:
   fetch-data:
@@ -26,3 +26,11 @@ jobs:
 
       - name: Run Fund Flow Script
         run: python fetch_flows.py
+
+      # 新增步骤：上传生成的数据文件
+      - name: Upload Data Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fund-flow-daily-data
+          path: fund_flow_data.json
+          retention-days: 7 # 文件保留 7 天
