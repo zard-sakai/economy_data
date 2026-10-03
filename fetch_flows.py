@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ----------------------------------------------------------------------
-# 基础工具函数
+# 基础工具与算法层
 # ----------------------------------------------------------------------
 def safe_yf_ticker_history(ticker_symbol, period="1mo"):
     """单标的安全抓取，拉取 1 个月数据以确保包含充足的有效交易日"""
@@ -25,7 +25,7 @@ def safe_yf_ticker_history(ticker_symbol, period="1mo"):
 
 def calculate_estimated_flow(df, days=7):
     """
-    通用伪资金流计算算法升级版：基于【昨收价】计算
+    通用伪资金流计算算法（修正版）：基于【昨收价】计算
     公式：(当日收盘 - 昨日收盘) / 昨日收盘 * 放大系数 * 当日成交额
     """
     flows = []
@@ -56,6 +56,29 @@ def calculate_estimated_flow(df, days=7):
             "close_price": round(close, 2)
         })
     return flows
+
+def normalize_to_intensity(data_dict):
+    """
+    【核心归一化引擎】：将绝对资金流转化为自身波动极值的 -100 到 +100 强度分数。
+    解决跨市场、跨币种、跨口径数据无法直接在一个柱状图里比大小的问题。
+    """
+    for asset, flows in data_dict.items():
+        if not flows:
+            continue
+        
+        # 寻找该资产在当前周期内的资金净流量绝对值的最大值（作为 100% 动能基准）
+        abs_flows = [abs(f.get('net_flow_usd', f.get('net_flow_cny_100m', f.get('net_flow_hkd_100m', 0)))) for f in flows]
+        max_abs = max(abs_flows) if abs_flows else 0
+        
+        for f in flows:
+            raw_val = f.get('net_flow_usd', f.get('net_flow_cny_100m', f.get('net_flow_hkd_100m', 0)))
+            if max_abs == 0:
+                f['intensity_score'] = 0.0
+            else:
+                # 计算强度分数，保留 1 位小数
+                f['intensity_score'] = round((raw_val / max_abs) * 100, 1)
+                
+    return data_dict
 
 
 # ----------------------------------------------------------------------
@@ -93,8 +116,8 @@ def fetch_cn_market_flow_multi_source():
     except Exception:
         pass
 
-    # 终极保底：国庆长假国内接口全部阻断时，用美股沪深300ETF (ASHR) 倒推
-    print("  [A股-备用线路] 国内接口异常，切换至美股 ASHR (沪深300 ETF) 倒推 7 天资金流...")
+    # 终极保底：国庆长假等国内接口阻断时，用美股沪深300ETF (ASHR) 倒推
+    print("  [A股-备用线路] 国内接口异常/休市，切换至美股 ASHR (沪深300) 倒推 7 天资金流...")
     ashr_df = safe_yf_ticker_history("ASHR")
     if not ashr_df.empty:
         return calculate_estimated_flow(ashr_df)
@@ -132,24 +155,24 @@ def fetch_board1_macro_assets_7d():
     try:
         spy_df = safe_yf_ticker_history("SPY")
         macro_data["美股"] = calculate_estimated_flow(spy_df)
-    except Exception as e:
+    except Exception:
         macro_data["美股"] = []
 
     # 4. 黄金 (GLD 代表)
     try:
         gld_df = safe_yf_ticker_history("GLD")
         macro_data["黄金"] = calculate_estimated_flow(gld_df)
-    except Exception as e:
+    except Exception:
         macro_data["黄金"] = []
 
     # 5. 原油 (USO 代表)
     try:
         uso_df = safe_yf_ticker_history("USO")
         macro_data["原油"] = calculate_estimated_flow(uso_df)
-    except Exception as e:
+    except Exception:
         macro_data["原油"] = []
 
-    # 6. 加密货币 (DefiLlama 稳定币市值)
+    # 6. 加密货币 (DefiLlama 稳定币市值增量)
     try:
         url = "https://stablecoins.llama.fi/stablecoincharts/all"
         res = requests.get(url, timeout=10).json()
@@ -165,15 +188,18 @@ def fetch_board1_macro_assets_7d():
                 "market_cap_usd": round(today_cap, 2)
             })
         macro_data["加密货币"] = crypto_flows
-    except Exception as e:
+    except Exception:
         macro_data["加密货币"] = []
 
     # 7. 类现金资产 (BIL 超短债代表)
     try:
         bil_df = safe_yf_ticker_history("BIL")
         macro_data["类现金资产"] = calculate_estimated_flow(bil_df)
-    except Exception as e:
+    except Exception:
         macro_data["类现金资产"] = []
+
+    # 进行资金强度归一化 (注入 intensity_score)
+    macro_data = normalize_to_intensity(macro_data)
 
     return {"status": "success", "data": macro_data}
 
@@ -278,10 +304,10 @@ def fetch_board3_sectors_7d():
         a_sectors[sector] = fetch_sector_with_failover(sector)
     stock_sector_data["A股"] = a_sectors
 
-    # 3. 港股板块 (将流动性极差的 2838.HK 替换为 2828.HK 恒生国企 ETF，或保留原标的)
+    # 3. 港股板块 (金融标的已替换为流动性更好的 2828.HK 恒生国企 ETF)
     hk_sector_tickers = {
         "资讯科技": "3033.HK",
-        "金融": "2838.HK", 
+        "金融": "2828.HK", 
         "医药": "1801.HK"
     }
     hk_sectors = {}
@@ -314,4 +340,4 @@ if __name__ == "__main__":
     with open(file_name, "w", encoding="utf-8") as f:
         json.dump(final_json, f, ensure_ascii=False, indent=4)
         
-    print(f"\n✅ 全量重构数据（基于昨收算法修正版）已成功写入 {file_name}")
+    print(f"\n✅ 全量工业级重构数据已成功写入 {file_name}")
