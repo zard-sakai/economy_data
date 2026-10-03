@@ -1,9 +1,45 @@
 {
-    "update_time_utc": "2026-10-03 09:36:01",
+    "update_time_utc": "2026-10-03 09:43:16",
     "board_1_macro_assets_7d": {
         "status": "success",
         "data": {
-            "SPY": [],
+            "SPY": [
+                {
+                    "date": "2026-09-24",
+                    "net_flow_usd": 1373454320.26,
+                    "close_price": 767.18
+                },
+                {
+                    "date": "2026-09-25",
+                    "net_flow_usd": 945464548.72,
+                    "close_price": 771.35
+                },
+                {
+                    "date": "2026-09-28",
+                    "net_flow_usd": -1165653451.65,
+                    "close_price": 765.61
+                },
+                {
+                    "date": "2026-09-29",
+                    "net_flow_usd": -967418567.93,
+                    "close_price": 764.2
+                },
+                {
+                    "date": "2026-09-30",
+                    "net_flow_usd": -2360781414.69,
+                    "close_price": 762.63
+                },
+                {
+                    "date": "2026-10-01",
+                    "net_flow_usd": -176432195.6,
+                    "close_price": 763.99
+                },
+                {
+                    "date": "2026-10-02",
+                    "net_flow_usd": -434750306.77,
+                    "close_price": 769.64
+                }
+            ],
             "TLT": [
                 {
                     "date": "2026-09-24",
@@ -157,42 +193,39 @@
     "board_2_regions_7d": {
         "status": "success",
         "data": {
-            "US": [
-                {
-                    "date": "2026-09-24",
-                    "net_flow_usd": 1373454320.26
-                },
-                {
-                    "date": "2026-09-25",
-                    "net_flow_usd": 945464548.72
-                },
-                {
-                    "date": "2026-09-28",
-                    "net_flow_usd": -1165653451.65
-                },
-                {
-                    "date": "2026-09-29",
-                    "net_flow_usd": -967418567.93
-                },
-                {
-                    "date": "2026-09-30",
-                    "net_flow_usd": -2360781414.69
-                },
-                {
-                    "date": "2026-10-01",
-                    "net_flow_usd": -176432195.6
-                },
-                {
-                    "date": "2026-10-02",
-                    "net_flow_usd": -434750306.77
-                }
-            ],
-            "CN": "休市或无数据",
-            "HK": "休市或无数据"
+            "US": [],
+            "CN": [],
+            "HK": []
         }
     },
     "board_3_sectors_7d": {
         "status": "success",
-        "data": {}
+        "data": {
+            "半导体": [
+                {
+                    "date": "2026-10-03",
+                    "net_flow_cny_100m": -0.0,
+                    "pct_change": -2.92,
+                    "source": "10jqka_Backup"
+                }
+            ],
+            "酿酒行业": [],
+            "银行": [
+                {
+                    "date": "2026-10-03",
+                    "net_flow_cny_100m": 0.0,
+                    "pct_change": 1.46,
+                    "source": "10jqka_Backup"
+                }
+            ],
+            "医疗器械": [
+                {
+                    "date": "2026-10-03",
+                    "net_flow_cny_100m": 0.0,
+                    "pct_change": 3.11,
+                    "source": "10jqka_Backup"
+                }
+            ]
+        }
     }
 }
