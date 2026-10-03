@@ -1,806 +1,197 @@
 {
-    "update_time_utc": "2026-10-03 09:16:58",
-    "layer_0_macro_30d": {
+    "update_time_utc": "2026-10-03 09:36:01",
+    "board_1_macro_assets_7d": {
         "status": "success",
         "data": {
-            "SPY": [
-                {
-                    "date": "2026-09-03",
-                    "close_price": 771.25,
-                    "estimated_net_flow_usd": 2304119692.03,
-                    "daily_turnover_usd": 33573956399.68
-                },
-                {
-                    "date": "2026-09-04",
-                    "close_price": 768.28,
-                    "estimated_net_flow_usd": -616796176.66,
-                    "daily_turnover_usd": 26163236599.8
-                },
-                {
-                    "date": "2026-09-08",
-                    "close_price": 764.06,
-                    "estimated_net_flow_usd": -1382536630.25,
-                    "daily_turnover_usd": 34188825224.51
-                },
-                {
-                    "date": "2026-09-09",
-                    "close_price": 760.51,
-                    "estimated_net_flow_usd": -548671434.0,
-                    "daily_turnover_usd": 24954208712.18
-                },
-                {
-                    "date": "2026-09-10",
-                    "close_price": 755.95,
-                    "estimated_net_flow_usd": -85251762.28,
-                    "daily_turnover_usd": 32309725900.42
-                },
-                {
-                    "date": "2026-09-11",
-                    "close_price": 762.4,
-                    "estimated_net_flow_usd": -195106745.83,
-                    "daily_turnover_usd": 34698736363.79
-                },
-                {
-                    "date": "2026-09-14",
-                    "close_price": 759.0,
-                    "estimated_net_flow_usd": 827054080.43,
-                    "daily_turnover_usd": 33390022163.53
-                },
-                {
-                    "date": "2026-09-15",
-                    "close_price": 755.51,
-                    "estimated_net_flow_usd": -1253472535.38,
-                    "daily_turnover_usd": 34900965350.34
-                },
-                {
-                    "date": "2026-09-16",
-                    "close_price": 752.18,
-                    "estimated_net_flow_usd": -3196276033.57,
-                    "daily_turnover_usd": 44542499269.29
-                },
-                {
-                    "date": "2026-09-17",
-                    "close_price": 760.71,
-                    "estimated_net_flow_usd": -272241770.7,
-                    "daily_turnover_usd": 37771431068.07
-                },
-                {
-                    "date": "2026-09-18",
-                    "close_price": 761.69,
-                    "estimated_net_flow_usd": 248628613.2,
-                    "daily_turnover_usd": 49810793878.66
-                },
-                {
-                    "date": "2026-09-21",
-                    "close_price": 773.5,
-                    "estimated_net_flow_usd": 3694771771.78,
-                    "daily_turnover_usd": 39049915450.0
-                },
-                {
-                    "date": "2026-09-22",
-                    "close_price": 773.38,
-                    "estimated_net_flow_usd": -226033465.96,
-                    "daily_turnover_usd": 26915402943.93
-                },
-                {
-                    "date": "2026-09-23",
-                    "close_price": 767.81,
-                    "estimated_net_flow_usd": -2717959371.19,
-                    "daily_turnover_usd": 42177108442.89
-                },
-                {
-                    "date": "2026-09-24",
-                    "close_price": 767.18,
-                    "estimated_net_flow_usd": 1373454320.26,
-                    "daily_turnover_usd": 33743414643.85
-                },
-                {
-                    "date": "2026-09-25",
-                    "close_price": 771.35,
-                    "estimated_net_flow_usd": 945464548.72,
-                    "daily_turnover_usd": 28282858149.82
-                },
-                {
-                    "date": "2026-09-28",
-                    "close_price": 765.61,
-                    "estimated_net_flow_usd": -1165653451.65,
-                    "daily_turnover_usd": 32687335519.59
-                },
-                {
-                    "date": "2026-09-29",
-                    "close_price": 764.2,
-                    "estimated_net_flow_usd": -967418567.93,
-                    "daily_turnover_usd": 28207004550.57
-                },
-                {
-                    "date": "2026-09-30",
-                    "close_price": 762.63,
-                    "estimated_net_flow_usd": -2360781414.69,
-                    "daily_turnover_usd": 47366949603.27
-                },
-                {
-                    "date": "2026-10-01",
-                    "close_price": 763.99,
-                    "estimated_net_flow_usd": -176432195.6,
-                    "daily_turnover_usd": 36448510853.1
-                },
-                {
-                    "date": "2026-10-02",
-                    "close_price": 769.64,
-                    "estimated_net_flow_usd": -434750306.77,
-                    "daily_turnover_usd": 35639258374.32
-                }
-            ],
-            "QQQ": [
-                {
-                    "date": "2026-09-03",
-                    "close_price": 716.92,
-                    "estimated_net_flow_usd": 2025637360.52,
-                    "daily_turnover_usd": 21113236391.42
-                },
-                {
-                    "date": "2026-09-04",
-                    "close_price": 718.21,
-                    "estimated_net_flow_usd": -127979194.92,
-                    "daily_turnover_usd": 23608405616.88
-                },
-                {
-                    "date": "2026-09-08",
-                    "close_price": 717.61,
-                    "estimated_net_flow_usd": -719396312.32,
-                    "daily_turnover_usd": 20338135642.25
-                },
-                {
-                    "date": "2026-09-09",
-                    "close_price": 715.56,
-                    "estimated_net_flow_usd": -24066143.12,
-                    "daily_turnover_usd": 19150936051.26
-                },
-                {
-                    "date": "2026-09-10",
-                    "close_price": 707.95,
-                    "estimated_net_flow_usd": 358332409.34,
-                    "daily_turnover_usd": 22239897724.02
-                },
-                {
-                    "date": "2026-09-11",
-                    "close_price": 714.14,
-                    "estimated_net_flow_usd": -212729575.94,
-                    "daily_turnover_usd": 19031078060.19
-                },
-                {
-                    "date": "2026-09-14",
-                    "close_price": 708.44,
-                    "estimated_net_flow_usd": 2075277044.85,
-                    "daily_turnover_usd": 24950610784.3
-                },
-                {
-                    "date": "2026-09-15",
-                    "close_price": 703.81,
-                    "estimated_net_flow_usd": -1126520516.91,
-                    "daily_turnover_usd": 18743565685.66
-                },
-                {
-                    "date": "2026-09-16",
-                    "close_price": 703.99,
-                    "estimated_net_flow_usd": -1163940923.33,
-                    "daily_turnover_usd": 25123866256.35
-                },
-                {
-                    "date": "2026-09-17",
-                    "close_price": 716.17,
-                    "estimated_net_flow_usd": 361623942.69,
-                    "daily_turnover_usd": 26692008876.77
-                },
-                {
-                    "date": "2026-09-18",
-                    "close_price": 720.7,
-                    "estimated_net_flow_usd": 1273442042.68,
-                    "daily_turnover_usd": 34938552339.3
-                },
-                {
-                    "date": "2026-09-21",
-                    "close_price": 741.47,
-                    "estimated_net_flow_usd": 6464389661.33,
-                    "daily_turnover_usd": 34649336612.94
-                },
-                {
-                    "date": "2026-09-22",
-                    "close_price": 747.46,
-                    "estimated_net_flow_usd": 2623103670.65,
-                    "daily_turnover_usd": 29994673729.74
-                },
-                {
-                    "date": "2026-09-23",
-                    "close_price": 741.21,
-                    "estimated_net_flow_usd": -1897088374.5,
-                    "daily_turnover_usd": 24602094807.31
-                },
-                {
-                    "date": "2026-09-24",
-                    "close_price": 741.1,
-                    "estimated_net_flow_usd": 1698265464.75,
-                    "daily_turnover_usd": 21492566281.97
-                },
-                {
-                    "date": "2026-09-25",
-                    "close_price": 744.5,
-                    "estimated_net_flow_usd": 506871244.0,
-                    "daily_turnover_usd": 22546289100.0
-                },
-                {
-                    "date": "2026-09-28",
-                    "close_price": 736.53,
-                    "estimated_net_flow_usd": -1633040826.16,
-                    "daily_turnover_usd": 30768541973.88
-                },
-                {
-                    "date": "2026-09-29",
-                    "close_price": 737.93,
-                    "estimated_net_flow_usd": -598768276.44,
-                    "daily_turnover_usd": 19962703540.86
-                },
-                {
-                    "date": "2026-09-30",
-                    "close_price": 739.77,
-                    "estimated_net_flow_usd": -125169522.38,
-                    "daily_turnover_usd": 22060237890.43
-                },
-                {
-                    "date": "2026-10-01",
-                    "close_price": 742.03,
-                    "estimated_net_flow_usd": -171380884.36,
-                    "daily_turnover_usd": 26511916713.75
-                },
-                {
-                    "date": "2026-10-02",
-                    "close_price": 749.58,
-                    "estimated_net_flow_usd": -594901106.24,
-                    "daily_turnover_usd": 25835849407.04
-                }
-            ],
+            "SPY": [],
             "TLT": [
                 {
-                    "date": "2026-09-03",
-                    "close_price": 81.74,
-                    "estimated_net_flow_usd": -51902687.76,
-                    "daily_turnover_usd": 1474031689.89
-                },
-                {
-                    "date": "2026-09-04",
-                    "close_price": 81.88,
-                    "estimated_net_flow_usd": -13207724.91,
-                    "daily_turnover_usd": 1358548524.01
-                },
-                {
-                    "date": "2026-09-08",
-                    "close_price": 81.87,
-                    "estimated_net_flow_usd": -38360252.68,
-                    "daily_turnover_usd": 1317644560.06
-                },
-                {
-                    "date": "2026-09-09",
-                    "close_price": 81.4,
-                    "estimated_net_flow_usd": -185312936.87,
-                    "daily_turnover_usd": 3311065445.08
-                },
-                {
-                    "date": "2026-09-10",
-                    "close_price": 80.46,
-                    "estimated_net_flow_usd": -132166339.95,
-                    "daily_turnover_usd": 4866097334.34
-                },
-                {
-                    "date": "2026-09-11",
-                    "close_price": 80.55,
-                    "estimated_net_flow_usd": -138159390.64,
-                    "daily_turnover_usd": 2612174629.93
-                },
-                {
-                    "date": "2026-09-14",
-                    "close_price": 80.61,
-                    "estimated_net_flow_usd": 37015749.57,
-                    "daily_turnover_usd": 2719632972.34
-                },
-                {
-                    "date": "2026-09-15",
-                    "close_price": 80.39,
-                    "estimated_net_flow_usd": 27942313.28,
-                    "daily_turnover_usd": 2816171346.57
-                },
-                {
-                    "date": "2026-09-16",
-                    "close_price": 80.56,
-                    "estimated_net_flow_usd": -33730971.8,
-                    "daily_turnover_usd": 4549914817.98
-                },
-                {
-                    "date": "2026-09-17",
-                    "close_price": 81.45,
-                    "estimated_net_flow_usd": 99785481.17,
-                    "daily_turnover_usd": 3390241937.12
-                },
-                {
-                    "date": "2026-09-18",
-                    "close_price": 80.92,
-                    "estimated_net_flow_usd": -89825530.44,
-                    "daily_turnover_usd": 3326384304.08
-                },
-                {
-                    "date": "2026-09-21",
-                    "close_price": 81.47,
-                    "estimated_net_flow_usd": 21512975.96,
-                    "daily_turnover_usd": 2197500230.75
-                },
-                {
-                    "date": "2026-09-22",
-                    "close_price": 81.42,
-                    "estimated_net_flow_usd": -31694733.97,
-                    "daily_turnover_usd": 1853923615.05
-                },
-                {
-                    "date": "2026-09-23",
-                    "close_price": 80.14,
-                    "estimated_net_flow_usd": -536733404.95,
-                    "daily_turnover_usd": 4287534946.42
-                },
-                {
                     "date": "2026-09-24",
-                    "close_price": 79.1,
-                    "estimated_net_flow_usd": -541644146.96,
-                    "daily_turnover_usd": 4679687322.61
+                    "net_flow_usd": -541644146.96,
+                    "close_price": 79.1
                 },
                 {
                     "date": "2026-09-25",
-                    "close_price": 79.0,
-                    "estimated_net_flow_usd": -31145111.32,
-                    "daily_turnover_usd": 4943673403.94
+                    "net_flow_usd": -31145111.32,
+                    "close_price": 79.0
                 },
                 {
                     "date": "2026-09-28",
-                    "close_price": 78.3,
-                    "estimated_net_flow_usd": -18954644.67,
-                    "daily_turnover_usd": 4969478315.38
+                    "net_flow_usd": -18954644.67,
+                    "close_price": 78.3
                 },
                 {
                     "date": "2026-09-29",
-                    "close_price": 77.92,
-                    "estimated_net_flow_usd": -218753067.71,
-                    "daily_turnover_usd": 5923064761.57
+                    "net_flow_usd": -218753067.71,
+                    "close_price": 77.92
                 },
                 {
                     "date": "2026-09-30",
-                    "close_price": 77.47,
-                    "estimated_net_flow_usd": -275446928.4,
-                    "daily_turnover_usd": 5665435868.46
+                    "net_flow_usd": -275446928.4,
+                    "close_price": 77.47
                 },
                 {
                     "date": "2026-10-01",
-                    "close_price": 77.71,
-                    "estimated_net_flow_usd": 650490658.44,
-                    "daily_turnover_usd": 6499866369.42
+                    "net_flow_usd": 650490658.44,
+                    "close_price": 77.71
                 },
                 {
                     "date": "2026-10-02",
-                    "close_price": 77.48,
-                    "estimated_net_flow_usd": -280614270.16,
-                    "daily_turnover_usd": 4754591398.0
+                    "net_flow_usd": -280614270.16,
+                    "close_price": 77.48
                 }
             ],
             "GLD": [
                 {
-                    "date": "2026-09-03",
-                    "close_price": 410.22,
-                    "estimated_net_flow_usd": -61222201.07,
-                    "daily_turnover_usd": 5131647105.27
-                },
-                {
-                    "date": "2026-09-04",
-                    "close_price": 406.77,
-                    "estimated_net_flow_usd": 208136723.22,
-                    "daily_turnover_usd": 3991715256.19
-                },
-                {
-                    "date": "2026-09-08",
-                    "close_price": 399.72,
-                    "estimated_net_flow_usd": -342014514.55,
-                    "daily_turnover_usd": 3594362194.98
-                },
-                {
-                    "date": "2026-09-09",
-                    "close_price": 403.35,
-                    "estimated_net_flow_usd": -224462226.34,
-                    "daily_turnover_usd": 3302791189.98
-                },
-                {
-                    "date": "2026-09-10",
-                    "close_price": 396.36,
-                    "estimated_net_flow_usd": -320867064.92,
-                    "daily_turnover_usd": 4044021294.54
-                },
-                {
-                    "date": "2026-09-11",
-                    "close_price": 398.77,
-                    "estimated_net_flow_usd": -408359441.71,
-                    "daily_turnover_usd": 4371715389.56
-                },
-                {
-                    "date": "2026-09-14",
-                    "close_price": 392.84,
-                    "estimated_net_flow_usd": 70803308.04,
-                    "daily_turnover_usd": 2920804656.77
-                },
-                {
-                    "date": "2026-09-15",
-                    "close_price": 394.15,
-                    "estimated_net_flow_usd": 69922270.66,
-                    "daily_turnover_usd": 2642972784.07
-                },
-                {
-                    "date": "2026-09-16",
-                    "close_price": 391.74,
-                    "estimated_net_flow_usd": -1110613018.16,
-                    "daily_turnover_usd": 6178993213.96
-                },
-                {
-                    "date": "2026-09-17",
-                    "close_price": 398.36,
-                    "estimated_net_flow_usd": -148012768.94,
-                    "daily_turnover_usd": 3085736282.53
-                },
-                {
-                    "date": "2026-09-18",
-                    "close_price": 401.17,
-                    "estimated_net_flow_usd": 65828365.67,
-                    "daily_turnover_usd": 3820703090.88
-                },
-                {
-                    "date": "2026-09-21",
-                    "close_price": 398.38,
-                    "estimated_net_flow_usd": -114244123.96,
-                    "daily_turnover_usd": 2554014211.3
-                },
-                {
-                    "date": "2026-09-22",
-                    "close_price": 400.07,
-                    "estimated_net_flow_usd": 197074802.38,
-                    "daily_turnover_usd": 2608416440.75
-                },
-                {
-                    "date": "2026-09-23",
-                    "close_price": 392.88,
-                    "estimated_net_flow_usd": -183754235.12,
-                    "daily_turnover_usd": 2965065396.85
-                },
-                {
                     "date": "2026-09-24",
-                    "close_price": 391.69,
-                    "estimated_net_flow_usd": -18104323.62,
-                    "daily_turnover_usd": 2628318254.38
+                    "net_flow_usd": -18104323.62,
+                    "close_price": 391.69
                 },
                 {
                     "date": "2026-09-25",
-                    "close_price": 393.41,
-                    "estimated_net_flow_usd": 92696891.91,
-                    "daily_turnover_usd": 3029689779.2
+                    "net_flow_usd": 92696891.91,
+                    "close_price": 393.41
                 },
                 {
                     "date": "2026-09-28",
-                    "close_price": 377.91,
-                    "estimated_net_flow_usd": -273266069.76,
-                    "daily_turnover_usd": 5609469348.36
+                    "net_flow_usd": -273266069.76,
+                    "close_price": 377.91
                 },
                 {
                     "date": "2026-09-29",
-                    "close_price": 382.89,
-                    "estimated_net_flow_usd": 159206410.41,
-                    "daily_turnover_usd": 3110139010.99
+                    "net_flow_usd": 159206410.41,
+                    "close_price": 382.89
                 },
                 {
                     "date": "2026-09-30",
-                    "close_price": 380.84,
-                    "estimated_net_flow_usd": -246776049.91,
-                    "daily_turnover_usd": 2672049582.31
+                    "net_flow_usd": -246776049.91,
+                    "close_price": 380.84
                 },
                 {
                     "date": "2026-10-01",
-                    "close_price": 382.76,
-                    "estimated_net_flow_usd": 51930846.38,
-                    "daily_turnover_usd": 2333266743.53
+                    "net_flow_usd": 51930846.38,
+                    "close_price": 382.76
                 },
                 {
                     "date": "2026-10-02",
-                    "close_price": 380.14,
-                    "estimated_net_flow_usd": -390152448.74,
-                    "daily_turnover_usd": 3480143820.1
+                    "net_flow_usd": -390152448.74,
+                    "close_price": 380.14
                 }
             ],
             "USO": [
                 {
-                    "date": "2026-09-03",
-                    "close_price": 142.09,
-                    "estimated_net_flow_usd": -1210675.12,
-                    "daily_turnover_usd": 573560479.22
-                },
-                {
-                    "date": "2026-09-04",
-                    "close_price": 141.96,
-                    "estimated_net_flow_usd": 67989390.94,
-                    "daily_turnover_usd": 526444488.9
-                },
-                {
-                    "date": "2026-09-08",
-                    "close_price": 146.03,
-                    "estimated_net_flow_usd": 90584768.15,
-                    "daily_turnover_usd": 915987770.34
-                },
-                {
-                    "date": "2026-09-09",
-                    "close_price": 149.97,
-                    "estimated_net_flow_usd": 65135345.38,
-                    "daily_turnover_usd": 828389295.74
-                },
-                {
-                    "date": "2026-09-10",
-                    "close_price": 158.38,
-                    "estimated_net_flow_usd": 371873364.87,
-                    "daily_turnover_usd": 1598846149.29
-                },
-                {
-                    "date": "2026-09-11",
-                    "close_price": 154.9,
-                    "estimated_net_flow_usd": 163588604.15,
-                    "daily_turnover_usd": 1039471899.04
-                },
-                {
-                    "date": "2026-09-14",
-                    "close_price": 156.66,
-                    "estimated_net_flow_usd": -209360205.58,
-                    "daily_turnover_usd": 1204997416.17
-                },
-                {
-                    "date": "2026-09-15",
-                    "close_price": 161.86,
-                    "estimated_net_flow_usd": 247403733.48,
-                    "daily_turnover_usd": 1116138006.21
-                },
-                {
-                    "date": "2026-09-16",
-                    "close_price": 156.17,
-                    "estimated_net_flow_usd": -177163700.01,
-                    "daily_turnover_usd": 898852041.46
-                },
-                {
-                    "date": "2026-09-17",
-                    "close_price": 155.31,
-                    "estimated_net_flow_usd": 52254025.3,
-                    "daily_turnover_usd": 665487808.54
-                },
-                {
-                    "date": "2026-09-18",
-                    "close_price": 153.82,
-                    "estimated_net_flow_usd": -131014900.15,
-                    "daily_turnover_usd": 678207794.29
-                },
-                {
-                    "date": "2026-09-21",
-                    "close_price": 148.16,
-                    "estimated_net_flow_usd": -39765383.12,
-                    "daily_turnover_usd": 822258388.32
-                },
-                {
-                    "date": "2026-09-22",
-                    "close_price": 144.08,
-                    "estimated_net_flow_usd": -111154269.89,
-                    "daily_turnover_usd": 1215257183.44
-                },
-                {
-                    "date": "2026-09-23",
-                    "close_price": 148.83,
-                    "estimated_net_flow_usd": 123622134.13,
-                    "daily_turnover_usd": 876459880.78
-                },
-                {
                     "date": "2026-09-24",
-                    "close_price": 153.09,
-                    "estimated_net_flow_usd": 192275331.33,
-                    "daily_turnover_usd": 1467413541.9
+                    "net_flow_usd": 192275331.33,
+                    "close_price": 153.09
                 },
                 {
                     "date": "2026-09-25",
-                    "close_price": 148.33,
-                    "estimated_net_flow_usd": -105336989.53,
-                    "daily_turnover_usd": 1066255385.16
+                    "net_flow_usd": -105336989.53,
+                    "close_price": 148.33
                 },
                 {
                     "date": "2026-09-28",
-                    "close_price": 150.01,
-                    "estimated_net_flow_usd": -172344026.4,
-                    "daily_turnover_usd": 1392407770.01
+                    "net_flow_usd": -172344026.4,
+                    "close_price": 150.01
                 },
                 {
                     "date": "2026-09-29",
-                    "close_price": 143.35,
-                    "estimated_net_flow_usd": -147014361.35,
-                    "daily_turnover_usd": 1027905553.77
+                    "net_flow_usd": -147014361.35,
+                    "close_price": 143.35
                 },
                 {
                     "date": "2026-09-30",
-                    "close_price": 145.66,
-                    "estimated_net_flow_usd": -49635388.87,
-                    "daily_turnover_usd": 483766004.16
+                    "net_flow_usd": -49635388.87,
+                    "close_price": 145.66
                 },
                 {
                     "date": "2026-10-01",
-                    "close_price": 150.02,
-                    "estimated_net_flow_usd": 254929945.53,
-                    "daily_turnover_usd": 891643895.39
+                    "net_flow_usd": 254929945.53,
+                    "close_price": 150.02
                 },
                 {
                     "date": "2026-10-02",
-                    "close_price": 147.37,
-                    "estimated_net_flow_usd": 303510163.39,
-                    "daily_turnover_usd": 1143620636.11
+                    "net_flow_usd": 303510163.39,
+                    "close_price": 147.37
+                }
+            ],
+            "CRYPTO": [
+                {
+                    "date": "2026-09-27",
+                    "net_flow_usd": 2290268954.0,
+                    "market_cap_usd": 310086306934.0
+                },
+                {
+                    "date": "2026-09-28",
+                    "net_flow_usd": 1383740891.0,
+                    "market_cap_usd": 311470047825.0
+                },
+                {
+                    "date": "2026-09-29",
+                    "net_flow_usd": -208237224.0,
+                    "market_cap_usd": 311261810601.0
+                },
+                {
+                    "date": "2026-09-30",
+                    "net_flow_usd": -61512796.0,
+                    "market_cap_usd": 311200297805.0
+                },
+                {
+                    "date": "2026-10-01",
+                    "net_flow_usd": -488873918.0,
+                    "market_cap_usd": 310711423887.0
+                },
+                {
+                    "date": "2026-10-02",
+                    "net_flow_usd": 805513752.0,
+                    "market_cap_usd": 311516937639.0
+                },
+                {
+                    "date": "2026-10-03",
+                    "net_flow_usd": 377363778.17,
+                    "market_cap_usd": 311894301417.17
                 }
             ]
         }
     },
-    "layer_1_crypto_30d": {
+    "board_2_regions_7d": {
         "status": "success",
-        "data": [
-            {
-                "date": "2026-09-04",
-                "market_cap_usd": 308676336604.0,
-                "net_flow_usd": 1046116503.0
-            },
-            {
-                "date": "2026-09-05",
-                "market_cap_usd": 308865619966.0,
-                "net_flow_usd": 189283362.0
-            },
-            {
-                "date": "2026-09-06",
-                "market_cap_usd": 308927744048.0,
-                "net_flow_usd": 62124082.0
-            },
-            {
-                "date": "2026-09-07",
-                "market_cap_usd": 308955237485.0,
-                "net_flow_usd": 27493437.0
-            },
-            {
-                "date": "2026-09-08",
-                "market_cap_usd": 308818960271.0,
-                "net_flow_usd": -136277214.0
-            },
-            {
-                "date": "2026-09-09",
-                "market_cap_usd": 309057822174.0,
-                "net_flow_usd": 238861903.0
-            },
-            {
-                "date": "2026-09-10",
-                "market_cap_usd": 308905223490.0,
-                "net_flow_usd": -152598684.0
-            },
-            {
-                "date": "2026-09-11",
-                "market_cap_usd": 308547158774.0,
-                "net_flow_usd": -358064716.0
-            },
-            {
-                "date": "2026-09-12",
-                "market_cap_usd": 308735800482.0,
-                "net_flow_usd": 188641708.0
-            },
-            {
-                "date": "2026-09-13",
-                "market_cap_usd": 308713430563.0,
-                "net_flow_usd": -22369919.0
-            },
-            {
-                "date": "2026-09-14",
-                "market_cap_usd": 308599085653.0,
-                "net_flow_usd": -114344910.0
-            },
-            {
-                "date": "2026-09-15",
-                "market_cap_usd": 308786489508.0,
-                "net_flow_usd": 187403855.0
-            },
-            {
-                "date": "2026-09-16",
-                "market_cap_usd": 308019810194.0,
-                "net_flow_usd": -766679314.0
-            },
-            {
-                "date": "2026-09-17",
-                "market_cap_usd": 308007819544.0,
-                "net_flow_usd": -11990650.0
-            },
-            {
-                "date": "2026-09-18",
-                "market_cap_usd": 308019607521.0,
-                "net_flow_usd": 11787977.0
-            },
-            {
-                "date": "2026-09-19",
-                "market_cap_usd": 308517994740.0,
-                "net_flow_usd": 498387219.0
-            },
-            {
-                "date": "2026-09-20",
-                "market_cap_usd": 308494066876.0,
-                "net_flow_usd": -23927864.0
-            },
-            {
-                "date": "2026-09-21",
-                "market_cap_usd": 308676709792.0,
-                "net_flow_usd": 182642916.0
-            },
-            {
-                "date": "2026-09-22",
-                "market_cap_usd": 310349625823.0,
-                "net_flow_usd": 1672916031.0
-            },
-            {
-                "date": "2026-09-23",
-                "market_cap_usd": 307918173387.0,
-                "net_flow_usd": -2431452436.0
-            },
-            {
-                "date": "2026-09-24",
-                "market_cap_usd": 307161812723.0,
-                "net_flow_usd": -756360664.0
-            },
-            {
-                "date": "2026-09-25",
-                "market_cap_usd": 308512905448.0,
-                "net_flow_usd": 1351092725.0
-            },
-            {
-                "date": "2026-09-26",
-                "market_cap_usd": 307796037980.0,
-                "net_flow_usd": -716867468.0
-            },
-            {
-                "date": "2026-09-27",
-                "market_cap_usd": 310086306934.0,
-                "net_flow_usd": 2290268954.0
-            },
-            {
-                "date": "2026-09-28",
-                "market_cap_usd": 311470047825.0,
-                "net_flow_usd": 1383740891.0
-            },
-            {
-                "date": "2026-09-29",
-                "market_cap_usd": 311261810601.0,
-                "net_flow_usd": -208237224.0
-            },
-            {
-                "date": "2026-09-30",
-                "market_cap_usd": 311200297805.0,
-                "net_flow_usd": -61512796.0
-            },
-            {
-                "date": "2026-10-01",
-                "market_cap_usd": 310711423887.0,
-                "net_flow_usd": -488873918.0
-            },
-            {
-                "date": "2026-10-02",
-                "market_cap_usd": 311516937639.0,
-                "net_flow_usd": 805513752.0
-            },
-            {
-                "date": "2026-10-03",
-                "market_cap_usd": 311900869415.05,
-                "net_flow_usd": 383931776.05
-            }
-        ]
+        "data": {
+            "US": [
+                {
+                    "date": "2026-09-24",
+                    "net_flow_usd": 1373454320.26
+                },
+                {
+                    "date": "2026-09-25",
+                    "net_flow_usd": 945464548.72
+                },
+                {
+                    "date": "2026-09-28",
+                    "net_flow_usd": -1165653451.65
+                },
+                {
+                    "date": "2026-09-29",
+                    "net_flow_usd": -967418567.93
+                },
+                {
+                    "date": "2026-09-30",
+                    "net_flow_usd": -2360781414.69
+                },
+                {
+                    "date": "2026-10-01",
+                    "net_flow_usd": -176432195.6
+                },
+                {
+                    "date": "2026-10-02",
+                    "net_flow_usd": -434750306.77
+                }
+            ],
+            "CN": "休市或无数据",
+            "HK": "休市或无数据"
+        }
     },
-    "layer_2_ashare_30d": {
+    "board_3_sectors_7d": {
         "status": "success",
         "data": {}
     }
