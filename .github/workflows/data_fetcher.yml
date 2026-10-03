@@ -9,6 +9,10 @@ jobs:
   fetch-data:
     runs-on: ubuntu-latest
 
+    # 需要赋予 Actions 写代码仓库的权限
+    permissions:
+      contents: write 
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,10 +31,11 @@ jobs:
       - name: Run Fund Flow Script
         run: python fetch_flows.py
 
-      # 新增步骤：上传生成的数据文件
-      - name: Upload Data Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: fund-flow-daily-data
-          path: fund_flow_data.json
-          retention-days: 7 # 文件保留 7 天
+      # 新增步骤：将生成的文件直接提交（Commit & Push）到当前代码库
+      - name: Commit and push changes
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git add fund_flow_data.json
+          git commit -m "自动更新每日资金流向数据" || echo "今天的数据没有变化"
+          git push
