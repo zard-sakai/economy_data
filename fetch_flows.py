@@ -52,12 +52,12 @@ def calculate_estimated_flow(df, days=7):
 # A股多数据源灾备穿透抓取 (主线路: 东财 -> 备用1: 同花顺 -> 备用2: 新浪/腾讯 REST)
 # ----------------------------------------------------------------------
 def fetch_cn_market_flow_multi_source():
-    """遍历所有公开金融 API 抓取 A 股资金流"""
+    """A股多源穿透：主线路(东财历史) -> 备用1(同花顺即时) -> 备用2(yfinance ASHR 历史估算)"""
     
-    # 【主线路】：东方财富
+    # 【主线路】：东方财富大盘资金流（带历史）
     try:
         df_a = ak.stock_market_fund_flow().tail(7)
-        if not df_a.empty:
+        if not df_a.empty and len(df_a) >= 2: # 确保抓到的是多天历史
             cn_flows = []
             for _, row in df_a.iterrows():
                 cn_flows.append({
@@ -67,51 +67,30 @@ def fetch_cn_market_flow_multi_source():
                 })
             return cn_flows
     except Exception as e:
-        print(f"  [A股-主线路] 东方财富接口响应异常 ({e})，正在自动穿透至备用线路 1 (同花顺 API)...")
+        print(f"  [A股-主线路] 东财接口异常: {e}，尝试备用线路...")
 
-    # 【备用线路 1】：同花顺行业/大盘资金流
-    try:
-        df_ths = ak.stock_fund_flow_industry(symbol="即时")
-        if not df_ths.empty:
-            total_net_flow = df_ths['净额'].sum() if '净额' in df_ths.columns else 0.0
-            today_str = datetime.now().strftime('%Y-%m-%d')
-            return [{
-                "date": today_str,
-                "net_flow_cny_100m": round(float(total_net_flow) / 1e8, 2),
-                "source": "10jqka_Realtime"
-            }]
-    except Exception as e:
-        print(f"  [A股-备用1] 同花顺接口抓取失败 ({e})，正在自动穿透至备用线路 2 (新浪财经 REST API)...")
-
-    # 【备用线路 2】：新浪财经/腾讯大盘资金公开 HTTP 接口
-    try:
-        url = "http://vip.stock.finance.sina.com.cn/quotes_service/api/json_rpc.php/Market_Center.getHQNodeData?page=1&num=10&sort=changepercent&asc=0&node=hs_a"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        res = requests.get(url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            today_str = datetime.now().strftime('%Y-%m-%d')
-            return [{
-                "date": today_str,
-                "net_flow_cny_100m": 0.0,
-                "note": "行情活跃，节假日流向归零",
-                "source": "Sina_API"
-            }]
-    except Exception as e:
-        print(f"  [A股-备用2] 新浪接口亦失败: {e}")
-
-    # 【最后保底】：拉取历史日终数据，避免 JSON 抛出空数组
+    # 【备用线路 1】：同花顺行业历史资金流（按日期汇总）
     try:
         df_a_hist = ak.stock_market_fund_flow_hist(symbol="上证主板").tail(7)
-        cn_flows = []
-        for _, row in df_a_hist.iterrows():
-            cn_flows.append({
-                "date": str(row['日期']),
-                "net_flow_cny_100m": round(float(row['主力净流入-净额']) / 1e8, 2),
-                "source": "Eastmoney_Hist_Fallback"
-            })
-        return cn_flows
+        if not df_a_hist.empty:
+            cn_flows = []
+            for _, row in df_a_hist.iterrows():
+                cn_flows.append({
+                    "date": str(row['日期']),
+                    "net_flow_cny_100m": round(float(row['主力净流入-净额']) / 1e8, 2),
+                    "source": "Eastmoney_Hist"
+                })
+            return cn_flows
     except Exception:
-        return []
+        pass
+
+    # 【备用线路 2 (终极保底)】：与港股(EWH)对齐，使用美股上市的 A股 ETF (ASHR) 倒推 7 天资金流
+    print("  [A股-保底线路] 切换至美股 ASHR (沪深300 ETF) 倒推 7 天历史资金流...")
+    ashr_df = safe_yf_ticker_history("ASHR")
+    if not ashr_df.empty:
+        return calculate_estimated_flow(ashr_df)
+
+    return []
 
 
 # ----------------------------------------------------------------------
