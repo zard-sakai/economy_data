@@ -1,4 +1,4 @@
-name: Global Fund Flow Fetcher
+name: Global Fund Flow Fetcher (7D)
 
 on:
   workflow_dispatch:
@@ -8,10 +8,8 @@ on:
 jobs:
   fetch-data:
     runs-on: ubuntu-latest
-
-    # 需要赋予 Actions 写代码仓库的权限
     permissions:
-      contents: write 
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -31,11 +29,10 @@ jobs:
       - name: Run Fund Flow Script
         run: python fetch_flows.py
 
-      # 新增步骤：将生成的文件直接提交（Commit & Push）到当前代码库
       - name: Commit and push changes
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git add fund_flow_data.json
-          git commit -m "自动更新每日资金流向数据" || echo "今天的数据没有变化"
+          git commit -m "更新最近7天三层看板数据" || echo "数据未变动"
           git push
