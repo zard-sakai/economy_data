@@ -1,6 +1,6 @@
 {
   "schema_version": "4.0",
-  "update_time_utc": "2026-10-06 02:12:34",
+  "update_time_utc": "2026-10-07 01:27:00",
   "data_date": "2026-09-30",
   "data_date_source": "anchored_by_hsgt",
   "fx_basis": {
@@ -2823,16 +2823,6 @@
       ],
       "美股": [
         {
-          "date": "2026-09-25",
-          "value_usd": 19465300549.29,
-          "value_native": 19465300549.29,
-          "native_unit": "USD",
-          "metric_type": "A/D 动能代理（非真实资金流）",
-          "is_proxy": true,
-          "close_price": 771.35,
-          "intensity_score": 46.8
-        },
-        {
           "date": "2026-09-28",
           "value_usd": -11467454772.65,
           "value_native": -11467454772.65,
@@ -2884,26 +2874,26 @@
         },
         {
           "date": "2026-10-05",
-          "value_usd": 16979486691.03,
-          "value_native": 16979486691.03,
+          "value_usd": 16998555011.8,
+          "value_native": 16998555011.8,
           "native_unit": "USD",
           "metric_type": "A/D 动能代理（非真实资金流）",
           "is_proxy": true,
           "close_price": 774.83,
-          "intensity_score": 40.8
-        }
-      ],
-      "黄金": [
+          "intensity_score": 40.9
+        },
         {
-          "date": "2026-09-25",
-          "value_usd": 1848692377.58,
-          "value_native": 1848692377.58,
+          "date": "2026-10-06",
+          "value_usd": -10736674697.06,
+          "value_native": -10736674697.06,
           "native_unit": "USD",
           "metric_type": "A/D 动能代理（非真实资金流）",
           "is_proxy": true,
-          "close_price": 393.41,
-          "intensity_score": 59.1
-        },
+          "close_price": 779.09,
+          "intensity_score": -25.8
+        }
+      ],
+      "黄金": [
         {
           "date": "2026-09-28",
           "value_usd": -3126150732.48,
@@ -2956,26 +2946,26 @@
         },
         {
           "date": "2026-10-05",
-          "value_usd": 195562633.57,
-          "value_native": 195562633.57,
+          "value_usd": 197612749.52,
+          "value_native": 197612749.52,
           "native_unit": "USD",
           "metric_type": "A/D 动能代理（非真实资金流）",
           "is_proxy": true,
           "close_price": 379.55,
           "intensity_score": 6.3
-        }
-      ],
-      "原油": [
+        },
         {
-          "date": "2026-09-25",
-          "value_usd": -508712533.61,
-          "value_native": -508712533.61,
+          "date": "2026-10-06",
+          "value_usd": 894775101.86,
+          "value_native": 894775101.86,
           "native_unit": "USD",
           "metric_type": "A/D 动能代理（非真实资金流）",
           "is_proxy": true,
-          "close_price": 148.33,
-          "intensity_score": -50.2
-        },
+          "close_price": 382.27,
+          "intensity_score": 28.6
+        }
+      ],
+      "原油": [
         {
           "date": "2026-09-28",
           "value_usd": -142950811.38,
@@ -3028,26 +3018,26 @@
         },
         {
           "date": "2026-10-05",
-          "value_usd": -334263249.41,
-          "value_native": -334263249.41,
+          "value_usd": -335792151.28,
+          "value_native": -335792151.28,
           "native_unit": "USD",
           "metric_type": "A/D 动能代理（非真实资金流）",
           "is_proxy": true,
           "close_price": 143.99,
-          "intensity_score": -33.0
-        }
-      ],
-      "类现金资产": [
+          "intensity_score": -33.1
+        },
         {
-          "date": "2026-09-25",
-          "value_usd": 708722305.74,
-          "value_native": 708722305.74,
+          "date": "2026-10-06",
+          "value_usd": 438239752.0,
+          "value_native": 438239752.0,
           "native_unit": "USD",
           "metric_type": "A/D 动能代理（非真实资金流）",
           "is_proxy": true,
-          "close_price": 91.36,
-          "intensity_score": 25.3
-        },
+          "close_price": 144.91,
+          "intensity_score": 43.2
+        }
+      ],
+      "类现金资产": [
         {
           "date": "2026-09-28",
           "value_usd": 1067941215.37,
@@ -3100,13 +3090,23 @@
         },
         {
           "date": "2026-10-05",
-          "value_usd": 296627.03,
-          "value_native": 296627.03,
+          "value_usd": 297534.11,
+          "value_native": 297534.11,
           "native_unit": "USD",
           "metric_type": "A/D 动能代理（非真实资金流）",
           "is_proxy": true,
           "close_price": 91.44,
           "intensity_score": 0.0
+        },
+        {
+          "date": "2026-10-06",
+          "value_usd": 716777253.1,
+          "value_native": 716777253.1,
+          "native_unit": "USD",
+          "metric_type": "A/D 动能代理（非真实资金流）",
+          "is_proxy": true,
+          "close_price": 91.45,
+          "intensity_score": 25.6
         }
       ],
       "加密货币": [
@@ -3172,13 +3172,13 @@
         },
         {
           "date": "2026-10-06",
-          "value_usd": 464609342.12,
-          "value_native": 464609342.12,
+          "value_usd": 454308021.35,
+          "value_native": 454308021.35,
           "native_unit": "USD",
           "metric_type": "稳定币总市值日变化（!= 净法币流入）",
           "is_proxy": false,
-          "market_cap_usd": 312680678717.12,
-          "intensity_score": 57.7
+          "market_cap_usd": 312670377396.35,
+          "intensity_score": 56.4
         }
       ]
     },
@@ -3196,16 +3196,6 @@
     "status": "success",
     "data": {
       "US": [
-        {
-          "date": "2026-09-25",
-          "value_usd": 19465300549.29,
-          "value_native": 19465300549.29,
-          "native_unit": "USD",
-          "metric_type": "A/D 动能代理（非真实资金流）",
-          "is_proxy": true,
-          "close_price": 771.35,
-          "intensity_score": 46.8
-        },
         {
           "date": "2026-09-28",
           "value_usd": -11467454772.65,
@@ -3258,13 +3248,23 @@
         },
         {
           "date": "2026-10-05",
-          "value_usd": 16979486691.03,
-          "value_native": 16979486691.03,
+          "value_usd": 16998555011.8,
+          "value_native": 16998555011.8,
           "native_unit": "USD",
           "metric_type": "A/D 动能代理（非真实资金流）",
           "is_proxy": true,
           "close_price": 774.83,
-          "intensity_score": 40.8
+          "intensity_score": 40.9
+        },
+        {
+          "date": "2026-10-06",
+          "value_usd": -10736674697.06,
+          "value_native": -10736674697.06,
+          "native_unit": "USD",
+          "metric_type": "A/D 动能代理（非真实资金流）",
+          "is_proxy": true,
+          "close_price": 779.09,
+          "intensity_score": -25.8
         }
       ],
       "CN": {
@@ -6140,16 +6140,6 @@
       "美股": {
         "科技": [
           {
-            "date": "2026-09-25",
-            "value_usd": 342398385.97,
-            "value_native": 342398385.97,
-            "native_unit": "USD",
-            "metric_type": "A/D 动能代理（非真实资金流）",
-            "is_proxy": true,
-            "close_price": 196.27,
-            "intensity_score": 31.0
-          },
-          {
             "date": "2026-09-28",
             "value_usd": 89680915.51,
             "value_native": 89680915.51,
@@ -6208,19 +6198,19 @@
             "is_proxy": true,
             "close_price": 200.93,
             "intensity_score": 54.0
-          }
-        ],
-        "医疗保健": [
+          },
           {
-            "date": "2026-09-25",
-            "value_usd": 781520247.78,
-            "value_native": 781520247.78,
+            "date": "2026-10-06",
+            "value_usd": -1005828575.84,
+            "value_native": -1005828575.84,
             "native_unit": "USD",
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
-            "close_price": 170.7,
-            "intensity_score": 39.2
-          },
+            "close_price": 202.0,
+            "intensity_score": -90.9
+          }
+        ],
+        "医疗保健": [
           {
             "date": "2026-09-28",
             "value_usd": 484594220.82,
@@ -6280,19 +6270,19 @@
             "is_proxy": true,
             "close_price": 167.37,
             "intensity_score": 39.2
-          }
-        ],
-        "金融": [
+          },
           {
-            "date": "2026-09-25",
-            "value_usd": 1316907324.89,
-            "value_native": 1316907324.89,
+            "date": "2026-10-06",
+            "value_usd": -256313063.51,
+            "value_native": -256313063.51,
             "native_unit": "USD",
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
-            "close_price": 54.84,
-            "intensity_score": 48.4
-          },
+            "close_price": 167.09,
+            "intensity_score": -12.8
+          }
+        ],
+        "金融": [
           {
             "date": "2026-09-28",
             "value_usd": -1797615771.26,
@@ -6345,26 +6335,26 @@
           },
           {
             "date": "2026-10-05",
-            "value_usd": 1131131067.01,
-            "value_native": 1131131067.01,
+            "value_usd": 1131838203.17,
+            "value_native": 1131838203.17,
             "native_unit": "USD",
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 53.88,
             "intensity_score": 41.6
-          }
-        ],
-        "能源": [
+          },
           {
-            "date": "2026-09-25",
-            "value_usd": 312859031.73,
-            "value_native": 312859031.73,
+            "date": "2026-10-06",
+            "value_usd": -447378546.03,
+            "value_native": -447378546.03,
             "native_unit": "USD",
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
-            "close_price": 62.04,
-            "intensity_score": 12.8
-          },
+            "close_price": 54.01,
+            "intensity_score": -16.5
+          }
+        ],
+        "能源": [
           {
             "date": "2026-09-28",
             "value_usd": -957497182.0,
@@ -6424,19 +6414,19 @@
             "is_proxy": true,
             "close_price": 63.45,
             "intensity_score": 49.2
-          }
-        ],
-        "可选消费": [
+          },
           {
-            "date": "2026-09-25",
-            "value_usd": 292955823.69,
-            "value_native": 292955823.69,
+            "date": "2026-10-06",
+            "value_usd": 798440384.2,
+            "value_native": 798440384.2,
             "native_unit": "USD",
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
-            "close_price": 110.56,
-            "intensity_score": 50.5
-          },
+            "close_price": 63.75,
+            "intensity_score": 32.7
+          }
+        ],
+        "可选消费": [
           {
             "date": "2026-09-28",
             "value_usd": -580402309.21,
@@ -6445,7 +6435,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 109.0,
-            "intensity_score": -100.0
+            "intensity_score": -98.9
           },
           {
             "date": "2026-09-29",
@@ -6455,7 +6445,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 109.15,
-            "intensity_score": 8.1
+            "intensity_score": 8.0
           },
           {
             "date": "2026-09-30",
@@ -6465,7 +6455,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 108.84,
-            "intensity_score": -61.2
+            "intensity_score": -60.5
           },
           {
             "date": "2026-10-01",
@@ -6475,7 +6465,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 108.81,
-            "intensity_score": 26.1
+            "intensity_score": 25.8
           },
           {
             "date": "2026-10-02",
@@ -6485,7 +6475,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 110.04,
-            "intensity_score": -27.0
+            "intensity_score": -26.7
           },
           {
             "date": "2026-10-05",
@@ -6495,20 +6485,20 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 110.42,
-            "intensity_score": 47.3
-          }
-        ],
-        "工业": [
+            "intensity_score": 46.8
+          },
           {
-            "date": "2026-09-25",
-            "value_usd": 496372472.75,
-            "value_native": 496372472.75,
+            "date": "2026-10-06",
+            "value_usd": 587048726.68,
+            "value_native": 587048726.68,
             "native_unit": "USD",
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
-            "close_price": 170.43,
-            "intensity_score": 40.6
-          },
+            "close_price": 111.72,
+            "intensity_score": 100.0
+          }
+        ],
+        "工业": [
           {
             "date": "2026-09-28",
             "value_usd": -211391498.34,
@@ -6568,6 +6558,16 @@
             "is_proxy": true,
             "close_price": 170.1,
             "intensity_score": 40.5
+          },
+          {
+            "date": "2026-10-06",
+            "value_usd": 269779699.17,
+            "value_native": 269779699.17,
+            "native_unit": "USD",
+            "metric_type": "A/D 动能代理（非真实资金流）",
+            "is_proxy": true,
+            "close_price": 171.58,
+            "intensity_score": 22.1
           }
         ]
       },
@@ -9288,26 +9288,6 @@
       "港股": {
         "资讯科技": [
           {
-            "date": "2026-09-24",
-            "value_usd": 1846850384.69,
-            "value_native": 1846850384.69,
-            "native_unit": "USD",
-            "metric_type": "A/D 动能代理（非真实资金流）",
-            "is_proxy": true,
-            "close_price": 4.27,
-            "intensity_score": 30.9
-          },
-          {
-            "date": "2026-09-25",
-            "value_usd": 5973887605.05,
-            "value_native": 5973887605.05,
-            "native_unit": "USD",
-            "metric_type": "A/D 动能代理（非真实资金流）",
-            "is_proxy": true,
-            "close_price": 4.24,
-            "intensity_score": 100.0
-          },
-          {
             "date": "2026-09-28",
             "value_usd": -4776350993.45,
             "value_native": -4776350993.45,
@@ -9315,7 +9295,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 4.2,
-            "intensity_score": -80.0
+            "intensity_score": -100.0
           },
           {
             "date": "2026-09-29",
@@ -9325,7 +9305,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 4.15,
-            "intensity_score": -37.7
+            "intensity_score": -47.1
           },
           {
             "date": "2026-09-30",
@@ -9335,7 +9315,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 4.17,
-            "intensity_score": 35.3
+            "intensity_score": 44.2
           },
           {
             "date": "2026-10-02",
@@ -9345,30 +9325,40 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 4.07,
-            "intensity_score": -12.9
+            "intensity_score": -16.1
+          },
+          {
+            "date": "2026-10-05",
+            "value_usd": 2875023159.71,
+            "value_native": 2875023159.71,
+            "native_unit": "USD",
+            "metric_type": "A/D 动能代理（非真实资金流）",
+            "is_proxy": true,
+            "close_price": 4.09,
+            "intensity_score": 60.2
           },
           {
             "date": "2026-10-06",
-            "value_usd": -343178887.43,
-            "value_native": -343178887.43,
+            "value_usd": NaN,
+            "value_native": NaN,
             "native_unit": "USD",
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
-            "close_price": 4.14,
-            "intensity_score": -5.7
+            "close_price": NaN,
+            "intensity_score": NaN
+          },
+          {
+            "date": "2026-10-07",
+            "value_usd": 4005221270.16,
+            "value_native": 4005221270.16,
+            "native_unit": "USD",
+            "metric_type": "A/D 动能代理（非真实资金流）",
+            "is_proxy": true,
+            "close_price": 4.17,
+            "intensity_score": 83.9
           }
         ],
         "金融": [
-          {
-            "date": "2026-09-24",
-            "value_usd": 1449087405.31,
-            "value_native": 1449087405.31,
-            "native_unit": "USD",
-            "metric_type": "A/D 动能代理（非真实资金流）",
-            "is_proxy": true,
-            "close_price": 84.6,
-            "intensity_score": 40.4
-          },
           {
             "date": "2026-09-25",
             "value_usd": 613529784.9,
@@ -9377,7 +9367,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 83.78,
-            "intensity_score": 17.1
+            "intensity_score": 16.4
           },
           {
             "date": "2026-09-28",
@@ -9387,7 +9377,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 84.36,
-            "intensity_score": 10.9
+            "intensity_score": 10.4
           },
           {
             "date": "2026-09-29",
@@ -9397,7 +9387,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 83.72,
-            "intensity_score": -47.8
+            "intensity_score": -45.7
           },
           {
             "date": "2026-09-30",
@@ -9407,7 +9397,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 84.22,
-            "intensity_score": 95.2
+            "intensity_score": 91.0
           },
           {
             "date": "2026-10-02",
@@ -9417,30 +9407,30 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 82.08,
-            "intensity_score": -100.0
+            "intensity_score": -95.6
+          },
+          {
+            "date": "2026-10-05",
+            "value_usd": 3748483627.66,
+            "value_native": 3748483627.66,
+            "native_unit": "USD",
+            "metric_type": "A/D 动能代理（非真实资金流）",
+            "is_proxy": true,
+            "close_price": 82.46,
+            "intensity_score": 100.0
           },
           {
             "date": "2026-10-06",
-            "value_usd": 413427131.65,
-            "value_native": 413427131.65,
+            "value_usd": NaN,
+            "value_native": NaN,
             "native_unit": "USD",
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
-            "close_price": 83.26,
-            "intensity_score": 11.5
+            "close_price": NaN,
+            "intensity_score": NaN
           }
         ],
         "医药": [
-          {
-            "date": "2026-09-25",
-            "value_usd": 231104862.48,
-            "value_native": 231104862.48,
-            "native_unit": "USD",
-            "metric_type": "A/D 动能代理（非真实资金流）",
-            "is_proxy": true,
-            "close_price": 99.7,
-            "intensity_score": 32.8
-          },
           {
             "date": "2026-09-28",
             "value_usd": -476571276.3,
@@ -9449,7 +9439,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 96.15,
-            "intensity_score": -67.6
+            "intensity_score": -18.5
           },
           {
             "date": "2026-09-29",
@@ -9459,7 +9449,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 95.9,
-            "intensity_score": -52.0
+            "intensity_score": -14.2
           },
           {
             "date": "2026-09-30",
@@ -9469,7 +9459,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 98.05,
-            "intensity_score": 99.5
+            "intensity_score": 27.3
           },
           {
             "date": "2026-10-02",
@@ -9479,7 +9469,7 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 96.25,
-            "intensity_score": 100.0
+            "intensity_score": 27.4
           },
           {
             "date": "2026-10-05",
@@ -9489,17 +9479,27 @@
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
             "close_price": 97.3,
-            "intensity_score": 47.5
+            "intensity_score": 13.0
           },
           {
             "date": "2026-10-06",
-            "value_usd": 56353764.08,
-            "value_native": 56353764.08,
+            "value_usd": 188799064.79,
+            "value_native": 188799064.79,
             "native_unit": "USD",
             "metric_type": "A/D 动能代理（非真实资金流）",
             "is_proxy": true,
-            "close_price": 99.0,
-            "intensity_score": 8.0
+            "close_price": 99.35,
+            "intensity_score": 7.3
+          },
+          {
+            "date": "2026-10-07",
+            "value_usd": -2572829134.63,
+            "value_native": -2572829134.63,
+            "native_unit": "USD",
+            "metric_type": "A/D 动能代理（非真实资金流）",
+            "is_proxy": true,
+            "close_price": 94.9,
+            "intensity_score": -100.0
           }
         ]
       }
